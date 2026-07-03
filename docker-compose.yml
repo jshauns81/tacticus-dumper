@@ -1,0 +1,32 @@
+services:
+  tacticus-dumper:
+    build: .
+    container_name: tacticus-dumper
+    restart: unless-stopped
+    expose:
+      - "5000"
+    environment:
+      # If using Cloudflare Access for auth, leave these blank.
+      # If NOT using Cloudflare Access, set a username/password here.
+      - AUTH_USER=${AUTH_USER:-}
+      - AUTH_PASS=${AUTH_PASS:-}
+
+      # Optional: pre-seed your Tacticus API key (skip the UI step)
+      - TACTICUS_KEY=${TACTICUS_KEY:-}
+
+      - DATA_DIR=/data
+    volumes:
+      - tacticus-data:/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: tacticus-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - tacticus-dumper
+
+volumes:
+  tacticus-data:
