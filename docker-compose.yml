@@ -3,8 +3,8 @@ services:
     build: .
     container_name: tacticus-dumper
     restart: unless-stopped
-    expose:
-      - "5000"
+    ports:
+      - "5001:5000"
     environment:
       # If using Cloudflare Access for auth, leave these blank.
       # If NOT using Cloudflare Access, set a username/password here.
@@ -17,16 +17,6 @@ services:
       - DATA_DIR=/data
     volumes:
       - tacticus-data:/data
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: tacticus-tunnel
-    restart: unless-stopped
-    command: tunnel run
-    environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-    depends_on:
-      - tacticus-dumper
 
 volumes:
   tacticus-data:
