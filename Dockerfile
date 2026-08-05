@@ -22,7 +22,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HOST=0.0.0.0 \
     PORT=5000 \
     DATA_DIR=/data \
-    TZ=America/Chicago
+    TZ=America/Chicago \
+    APP_USER=app \
+    APP_GROUP=app
 
 WORKDIR /app
 
@@ -33,8 +35,7 @@ RUN groupadd --system --gid 10001 app \
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app app.py ./
-
-USER app
+COPY docker-entrypoint.py /usr/local/bin/docker-entrypoint.py
 
 EXPOSE 5000
 VOLUME ["/data"]
@@ -42,4 +43,4 @@ VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os, urllib.request; port=os.environ.get('PORT', '5000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=3).read()"
 
-CMD ["sh", "-c", "exec gunicorn -w ${GUNICORN_WORKERS:-2} -b ${HOST:-0.0.0.0}:${PORT:-5000} --timeout ${GUNICORN_TIMEOUT:-60} app:app"]
+ENTRYPOINT ["python", "/usr/local/bin/docker-entrypoint.py"]

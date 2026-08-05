@@ -1,6 +1,6 @@
 services:
   tacticus-dumper:
-    image: ghcr.io/${GITHUB_REPOSITORY:-your-github-user/tacticus-dumper}:latest
+    image: ghcr.io/jshauns81/tacticus-dumper:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,10 +17,12 @@ services:
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
       GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-60}
     volumes:
-      - ${APPDATA_DIR:-/mnt/user/appdata/tacticus-dumper}/data:/data
+      - tacticus-data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3).read()"]
       interval: 30s
       timeout: 5s
       start_period: 10s
       retries: 3
+volumes:
+  tacticus-data:

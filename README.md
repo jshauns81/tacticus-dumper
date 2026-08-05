@@ -14,17 +14,16 @@ Self-hosted Flask application for pulling JSON from the **Warhammer 40,000: Tact
 | Rendering/service model | Server-rendered Flask app plus JSON API routes. It is not a static-only site and requires the Python API service. |
 | User data location | `DATA_DIR`, defaulting to `/data`. |
 | Storage backend | Files on disk only: `config.json` for saved API key/settings and `dumps/*.json` for exports. No browser local storage, SQLite, or external database is used by the app. |
-| Persistent paths | Persist `/data` in the container. In the Dockhand/Unraid compose file this maps to `${APPDATA_DIR:-/mnt/user/appdata/tacticus-dumper}/data`. |
+| Persistent paths | Persist `/data` in the container. The Dockhand/Unraid compose file uses the named volume `tacticus-data` to preserve the app's existing live data location. |
 | Required runtime environment variables | None strictly required for startup. `DATA_DIR`, `TZ`, `AUTH_USER`, `AUTH_PASS`, `TACTICUS_KEY`, `GUNICORN_WORKERS`, and `GUNICORN_TIMEOUT` are supported. |
 | Expected internal port | `5000`. |
-| Existing deployment files before this pass | The repository already had `Dockerfile` and `docker-compose.yml`. It did not have a health endpoint, `.dockerignore`, Dockhand `compose.yaml`, or GitHub Actions publishing workflow. |
+| Existing deployment files before this pass | The repository already had `Dockerfile` and `docker-compose.yml`. It did not have a health endpoint, `.dockerignore`, Dockhand `compose.yaml`, or GitHub Actions publishing workflow. Follow-up review kept the existing named volume instead of switching to appdata bind mounts to avoid hiding live data. |
 
 ## Runtime configuration
 
 | Variable | Default | Required? | Purpose |
 | --- | --- | --- | --- |
 | `APP_PORT` | `5001` | No | Host port used by `compose.yaml`. The container still listens on port `5000`. |
-| `APPDATA_DIR` | `/mnt/user/appdata/tacticus-dumper` | No | Unraid host directory used for persistent app data. |
 | `TZ` | `America/Chicago` | No | Container timezone. |
 | `DATA_DIR` | `/data` | No | Directory where the app stores `config.json` and `dumps/`. The compose file fixes this to `/data`. |
 | `AUTH_USER` | empty | No | Enables basic auth when set. Leave empty when using a trusted reverse proxy or Cloudflare Access. |
@@ -42,13 +41,14 @@ The app persists all user data under the container path `/data`:
 /data/dumps/*.json     # timestamped endpoint exports
 ```
 
-For Unraid/Dockhand, `compose.yaml` maps that path to:
+For Unraid/Dockhand, `compose.yaml` intentionally maps that path to the Compose named volume `tacticus-data`:
 
-```text
-/mnt/user/appdata/tacticus-dumper/data:/data
+```yaml
+volumes:
+  - tacticus-data:/data
 ```
 
-You may override the host-side location with `APPDATA_DIR`, but keep the container-side mount at `/data` unless you also set `DATA_DIR` consistently.
+This preserves behavioral parity with the existing deployment, whose live data is already in the stack's named Docker volume. Do not switch to an appdata bind mount unless you first migrate the existing `config.json` and `dumps/` into the new host directory and ensure the container can write to it.
 
 ## Build and run locally
 
@@ -71,16 +71,10 @@ docker compose -f compose.yaml down
 
 ## Deploy on Unraid through Dockhand
 
-1. Create an appdata directory on Unraid if it does not already exist:
-
-   ```bash
-   mkdir -p /mnt/user/appdata/tacticus-dumper/data
-   ```
-
-2. In Dockhand, use this repository's `compose.yaml`.
+1. In Dockhand, use this repository's `compose.yaml`.
+2. Keep the `tacticus-data:/data` named volume mapping unless you have intentionally migrated data elsewhere.
 3. Set or review environment variables:
    - `APP_PORT=5001` or another available host port
-   - `APPDATA_DIR=/mnt/user/appdata/tacticus-dumper`
    - `TZ=America/Chicago`
    - Optional `AUTH_USER` and `AUTH_PASS`
    - Optional `TACTICUS_KEY`
@@ -91,13 +85,13 @@ docker compose -f compose.yaml down
 
 The workflow in `.github/workflows/ghcr.yml` builds and publishes the image to GHCR on:
 
-- pushes to `main`
+- pushes to `master` or `main`
 - version tags matching `v*`, such as `v1.0.0`
 
 Published image name:
 
 ```text
-ghcr.io/<owner>/<repo>
+ghcr.io/jshauns81/tacticus-dumper
 ```
 
 The workflow writes `latest` for the default branch, tag names for version tags, and SHA tags for traceability.
@@ -131,7 +125,7 @@ The Dockerfile and `compose.yaml` both use `/healthz` for health checks.
 | Problem | Fix |
 | --- | --- |
 | Container is unhealthy | Check `docker compose -f compose.yaml logs tacticus-dumper`; the health check calls `/healthz` on internal port `5000`. |
-| Permission errors under `/data` | Ensure the host appdata directory is writable by UID/GID `10001`, or adjust ownership on the Unraid host. |
+| Permission errors under `/data` | The container starts as root only long enough to prepare `/data`, then drops to UID/GID `10001` before launching Gunicorn. Check logs if the volume cannot be repaired. |
 | Browser prompts for login | `AUTH_USER` is set. Use the configured credentials or unset `AUTH_USER`/`AUTH_PASS` if another access layer handles authentication. |
 | No API key saved | Paste a key in the UI or set `TACTICUS_KEY` before first container startup. |
 | 401 from Tacticus API | Re-generate your key and confirm it has the required scopes. |
