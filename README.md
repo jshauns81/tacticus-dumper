@@ -56,7 +56,7 @@ This preserves behavioral parity with the existing deployment, whose live data i
 cp .env.example .env
 # Edit .env if desired.
 docker compose -f compose.yaml build
-docker compose -f compose.yaml up -d
+docker compose -f compose.yaml up -d --wait --wait-timeout 60
 curl -fsS http://127.0.0.1:${APP_PORT:-5001}/healthz
 docker compose -f compose.yaml logs -f tacticus-dumper
 ```
@@ -124,6 +124,7 @@ The Dockerfile and `compose.yaml` both use `/healthz` for health checks.
 
 | Problem | Fix |
 | --- | --- |
+| Immediate health request is reset or refused | Start with `docker compose -f compose.yaml up -d --wait --wait-timeout 60`; the published port can exist briefly before Gunicorn is ready. |
 | Container is unhealthy | Check `docker compose -f compose.yaml logs tacticus-dumper`; the health check calls `/healthz` on internal port `5000`. |
 | Permission errors under `/data` | The container starts as root only long enough to prepare `/data`, then drops to UID/GID `10001` before launching Gunicorn. Check logs if the volume cannot be repaired. |
 | Browser prompts for login | `AUTH_USER` is set. Use the configured credentials or unset `AUTH_USER`/`AUTH_PASS` if another access layer handles authentication. |
