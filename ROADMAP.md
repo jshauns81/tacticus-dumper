@@ -29,7 +29,7 @@ Exit condition: a saved player dump can be converted into a stable internal acco
 - add version and source metadata
 - define characters, abilities, effects, modes, encounters, and team archetypes
 - seed a small Guild Raid-focused character set
-- validate every knowledge file in CI
+- validate every knowledge file in CI (character documents covered; expand with each schema)
 
 Exit condition: the application can load and validate versioned knowledge without strategic code depending on character names.
 

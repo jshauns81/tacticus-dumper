@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from advisor.knowledge import KnowledgeError, load_character_knowledge, validate_document
+from advisor.knowledge import (
+    KnowledgeError,
+    load_character_knowledge,
+    validate_document,
+    validate_knowledge_repository,
+)
 
 
 VALID_CHARACTER = {
@@ -84,3 +89,19 @@ def test_reports_schema_errors():
 
     with pytest.raises(KnowledgeError, match="name"):
         validate_document({}, schema)
+
+
+def test_repository_knowledge_is_valid():
+    records = validate_knowledge_repository(Path("knowledge"))
+
+    assert records == {"characters": {}}
+
+
+def test_repository_validation_rejects_unhandled_json(tmp_path: Path):
+    write_schema(tmp_path)
+    unsupported_dir = tmp_path / "unhandled"
+    unsupported_dir.mkdir()
+    (unsupported_dir / "entry.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(KnowledgeError, match="unhandled/entry.json"):
+        validate_knowledge_repository(tmp_path)

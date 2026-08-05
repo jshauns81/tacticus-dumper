@@ -59,3 +59,25 @@ def load_character_knowledge(knowledge_dir: Path) -> dict[str, dict[str, Any]]:
             raise KnowledgeError(f"Duplicate character knowledge ID: {character_id}")
         records[character_id] = document
     return records
+
+
+def validate_knowledge_repository(
+    knowledge_dir: Path,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """Validate every supported knowledge document in a repository tree."""
+    characters = load_character_knowledge(knowledge_dir)
+
+    schema_dir = knowledge_dir / "schema"
+    character_dir = knowledge_dir / "characters"
+    supported_files = set(character_dir.glob("*.json"))
+    data_files = {
+        path
+        for path in knowledge_dir.rglob("*.json")
+        if not path.is_relative_to(schema_dir)
+    }
+    unsupported_files = sorted(data_files - supported_files)
+    if unsupported_files:
+        names = ", ".join(str(path.relative_to(knowledge_dir)) for path in unsupported_files)
+        raise KnowledgeError(f"Unsupported knowledge document location: {names}")
+
+    return {"characters": characters}

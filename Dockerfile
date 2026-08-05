@@ -36,6 +36,7 @@ RUN groupadd --system --gid 10001 app \
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app app.py ./
 COPY --chown=app:app advisor ./advisor
+COPY --chown=app:app knowledge ./knowledge
 COPY docker-entrypoint.py /usr/local/bin/docker-entrypoint.py
 
 EXPOSE 5000
