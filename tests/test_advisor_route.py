@@ -1,12 +1,8 @@
 import json
 import os
-import tempfile
 from pathlib import Path
 
 import pytest
-
-_TEST_DATA_DIR = tempfile.TemporaryDirectory(prefix="tacticus-advisor-tests-")
-os.environ["DATA_DIR"] = _TEST_DATA_DIR.name
 
 import app as app_module
 from advisor.parser import normalize_player, summarize_roster

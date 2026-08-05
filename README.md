@@ -13,6 +13,7 @@ Self-hosted Flask application for pulling JSON from the **Warhammer 40,000: Tact
 | Run command | Development-style local run can use `flask --app app run`; production container uses `gunicorn ... app:app`. |
 | Rendering/service model | Server-rendered Flask app plus JSON API routes. It is not a static-only site and requires the Python API service. |
 | User data location | `DATA_DIR`, defaulting to `/data`. |
+| Optional endpoint visibility | Guild and Guild Raid cards can be shown or hidden independently from the web UI. This does not disable their API routes. |
 | Storage backend | Files on disk only: `config.json` for saved API key/settings and `dumps/*.json` for exports. No browser local storage, SQLite, or external database is used by the app. |
 | Persistent paths | Persist `/data` in the container. The Dockhand/Unraid compose file uses the named volume `tacticus-data` to preserve the app's existing live data location. |
 | Required runtime environment variables | None strictly required for startup. `DATA_DIR`, `TZ`, `AUTH_USER`, `AUTH_PASS`, `TACTICUS_KEY`, `GUNICORN_WORKERS`, and `GUNICORN_TIMEOUT` are supported. |

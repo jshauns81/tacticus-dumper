@@ -38,8 +38,19 @@ TACTICUS_BASE = "https://api.tacticusgame.com/api/v1"
 
 ENDPOINTS = {
     "player":    {"path": "/player",    "label": "Player",     "icon": "⚔",  "desc": "Full roster, inventory, campaigns"},
-    "guild":     {"path": "/guild",     "label": "Guild",      "icon": "🛡",  "desc": "Guild info & member list"},
-    "guildRaid": {"path": "/guildRaid", "label": "Guild Raid", "icon": "💀",  "desc": "Current raid season data"},
+    "guild":     {"path": "/guild",     "label": "Guild",      "icon": "🛡",  "desc": "Guild info & member list · Officer+"},
+    "guildRaid": {"path": "/guildRaid", "label": "Guild Raid", "icon": "💀",  "desc": "Current raid season data · Officer+"},
+}
+
+OPTIONAL_ENDPOINT_SETTINGS = {
+    "guild": "show_guild",
+    "guildRaid": "show_guild_raid",
+}
+
+BOOLEAN_SETTINGS = {
+    "auto_save": True,
+    "show_guild": True,
+    "show_guild_raid": True,
 }
 
 app = Flask(__name__)
@@ -117,12 +128,22 @@ def index():
     if has_key:
         k = cfg["api_key"]
         masked = (k[:6] + "…" + k[-4:]) if len(k) > 12 else "••••"
+    endpoints = {
+        key: endpoint
+        for key, endpoint in ENDPOINTS.items()
+        if key not in OPTIONAL_ENDPOINT_SETTINGS
+        or cfg.get(OPTIONAL_ENDPOINT_SETTINGS[key], True)
+    }
     return render_template_string(
         INDEX_HTML,
         has_key=has_key,
         masked=masked,
-        endpoints=ENDPOINTS,
-        auto_save=cfg.get("auto_save", True),
+        endpoints=endpoints,
+        auto_save=cfg.get("auto_save", BOOLEAN_SETTINGS["auto_save"]),
+        show_guild=cfg.get("show_guild", BOOLEAN_SETTINGS["show_guild"]),
+        show_guild_raid=cfg.get(
+            "show_guild_raid", BOOLEAN_SETTINGS["show_guild_raid"]
+        ),
     )
 
 
@@ -153,8 +174,12 @@ def clear_key():
 def update_settings():
     data = request.get_json(silent=True) or {}
     cfg = load_config()
-    if "auto_save" in data:
-        cfg["auto_save"] = bool(data["auto_save"])
+    for key in BOOLEAN_SETTINGS:
+        if key not in data:
+            continue
+        if not isinstance(data[key], bool):
+            return jsonify({"ok": False, "error": f"{key} must be a boolean."}), 400
+        cfg[key] = data[key]
     save_config(cfg)
     return jsonify({"ok": True})
 
@@ -367,6 +392,14 @@ INDEX_HTML = r"""<!doctype html>
 
   /* ── endpoint grid ── */
   .ep-grid { display: grid; gap: 10px; }
+  .ep-options {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px;
+    margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .ep-options .label {
+    color: var(--muted); font-size: 11px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
   .ep-card {
     display: flex; align-items: center; gap: 14px;
     background: var(--surface); border: 1px solid var(--border);
@@ -500,6 +533,17 @@ INDEX_HTML = r"""<!doctype html>
   <!-- ENDPOINTS CARD -->
   <div class="card">
     <div class="card-title">Fetch &amp; Download</div>
+    <div class="ep-options">
+      <span class="label">Optional endpoints</span>
+      <label class="toggle">
+        <input type="checkbox" id="show-guild" {% if show_guild %}checked{% endif %}>
+        Guild
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="show-guild-raid" {% if show_guild_raid %}checked{% endif %}>
+        Guild Raid
+      </label>
+    </div>
     <div class="ep-grid">
       {% for key, ep in endpoints.items() %}
       <div class="ep-card" data-endpoint="{{ key }}" role="button" tabindex="0">
@@ -587,6 +631,21 @@ $('auto-save').onchange = async e => {
     toast('Setting updated.');
   } catch(e) { toast(e.message,'err'); }
 };
+
+async function updateEndpointVisibility(setting, checked) {
+  try {
+    await api('/api/settings', {
+      method:'POST',
+      body: JSON.stringify({[setting]: checked})
+    });
+    location.reload();
+  } catch(e) {
+    toast(e.message,'err');
+  }
+}
+
+$('show-guild').onchange = e => updateEndpointVisibility('show_guild', e.target.checked);
+$('show-guild-raid').onchange = e => updateEndpointVisibility('show_guild_raid', e.target.checked);
 
 // ── Endpoint cards ──
 document.querySelectorAll('.ep-card').forEach(card => {
