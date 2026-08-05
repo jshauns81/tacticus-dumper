@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tacticus-dumper.local/schema/character.schema.json",
+  "title": "Tacticus Character Knowledge",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "knowledge_version",
+    "effective_from",
+    "last_reviewed",
+    "id",
+    "name",
+    "faction_id",
+    "alliance_id",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "knowledge_version": {"type": "string", "minLength": 1},
+    "effective_from": {"type": "string", "format": "date"},
+    "last_reviewed": {"type": "string", "format": "date"},
+    "id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "faction_id": {"type": "string", "minLength": 1},
+    "alliance_id": {"enum": ["Imperial", "Chaos", "Xenos"]},
+    "abilities": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "traits": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "roles": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "mode_evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["mode", "value", "confidence", "evidence"],
+        "properties": {
+          "mode": {"type": "string", "minLength": 1},
+          "value": {"type": "number", "minimum": 0, "maximum": 10},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "conditions": {"type": "array", "items": {"type": "string"}},
+          "evidence": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "breakpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target_type", "target_value", "reason", "confidence"],
+        "properties": {
+          "target_type": {"type": "string", "minLength": 1},
+          "target_value": {},
+          "reason": {"type": "string", "minLength": 1},
+          "modes": {"type": "array", "items": {"type": "string"}},
+          "conditions": {"type": "array", "items": {"type": "string"}},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type", "reference"],
+        "properties": {
+          "type": {
+            "enum": [
+              "official_game_data",
+              "official_patch_notes",
+              "observed_player_data",
+              "controlled_test",
+              "community_consensus",
+              "expert_judgment"
+            ]
+          },
+          "reference": {"type": "string", "minLength": 1},
+          "notes": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
