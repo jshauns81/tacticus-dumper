@@ -1,120 +1,131 @@
-# Tacticus API Dumper (Docker + Cloudflare Tunnel)
+# Tacticus API Dumper
 
-Self-hosted Docker app for pulling JSON from the **Warhammer 40,000: Tacticus**
-API. Runs on your server, accessible from anywhere via Cloudflare Tunnel —
-phone, laptop, whatever.
+Self-hosted Flask application for pulling JSON from the **Warhammer 40,000: Tacticus** API. The first containerization milestone is behavioral parity with the current app: the web UI saves a Tacticus API key, fetches the Player/Guild/Guild Raid endpoints, stores timestamped JSON dumps, and lets you re-download saved dumps.
 
-## Setup
+## Repository inspection summary
 
-### 1. Create a Cloudflare Tunnel
+| Area | Finding |
+| --- | --- |
+| Frontend framework | No separate frontend framework. The UI is server-rendered inline HTML/CSS/JavaScript from Flask's `render_template_string` in `app.py`. |
+| Backend framework | Python Flask, served in production by Gunicorn. |
+| Package manager | `pip` with `requirements.txt`. |
+| Build command | Local/container dependency install: `pip install -r requirements.txt`; container build: `docker build -t tacticus-dumper:local .`. |
+| Run command | Development-style local run can use `flask --app app run`; production container uses `gunicorn ... app:app`. |
+| Rendering/service model | Server-rendered Flask app plus JSON API routes. It is not a static-only site and requires the Python API service. |
+| User data location | `DATA_DIR`, defaulting to `/data`. |
+| Storage backend | Files on disk only: `config.json` for saved API key/settings and `dumps/*.json` for exports. No browser local storage, SQLite, or external database is used by the app. |
+| Persistent paths | Persist `/data` in the container. The Dockhand/Unraid compose file uses the named volume `tacticus-data` to preserve the app's existing live data location. |
+| Required runtime environment variables | None strictly required for startup. `DATA_DIR`, `TZ`, `AUTH_USER`, `AUTH_PASS`, `TACTICUS_KEY`, `GUNICORN_WORKERS`, and `GUNICORN_TIMEOUT` are supported. |
+| Expected internal port | `5000`. |
+| Existing deployment files before this pass | The repository already had `Dockerfile` and `docker-compose.yml`. It did not have a health endpoint, `.dockerignore`, Dockhand `compose.yaml`, or GitHub Actions publishing workflow. Follow-up review kept the existing named volume instead of switching to appdata bind mounts to avoid hiding live data. |
 
-In the Cloudflare dashboard:
+## Runtime configuration
 
-1. Go to **Zero Trust → Networks → Tunnels**
-2. Click **Create a tunnel** → choose **Cloudflared**
-3. Name it (e.g. `tacticus-dumper`)
-4. Copy the **tunnel token**
-5. Under **Public Hostnames**, add a route:
-   - **Subdomain**: whatever you want (e.g. `tacticus`)
-   - **Domain**: your domain
-   - **Service**: `http://tacticus-dumper:5000`
+| Variable | Default | Required? | Purpose |
+| --- | --- | --- | --- |
+| `APP_PORT` | `5001` | No | Host port used by `compose.yaml`. The container still listens on port `5000`. |
+| `TZ` | `America/Chicago` | No | Container timezone. |
+| `DATA_DIR` | `/data` | No | Directory where the app stores `config.json` and `dumps/`. The compose file fixes this to `/data`. |
+| `AUTH_USER` | empty | No | Enables basic auth when set. Leave empty when using a trusted reverse proxy or Cloudflare Access. |
+| `AUTH_PASS` | empty | No | Password for basic auth. |
+| `TACTICUS_KEY` | empty | No | Optional API key seed. If provided and no saved key exists, the app writes it to `config.json`. |
+| `GUNICORN_WORKERS` | `2` | No | Gunicorn worker count. |
+| `GUNICORN_TIMEOUT` | `60` | No | Gunicorn request timeout in seconds. |
 
-> The service URL points at the Docker container name, not localhost — both
-> containers share a Docker network so this just works.
+## Persistent storage
 
-### 2. Configure & Launch
+The app persists all user data under the container path `/data`:
+
+```text
+/data/config.json      # saved API key and settings
+/data/dumps/*.json     # timestamped endpoint exports
+```
+
+For Unraid/Dockhand, `compose.yaml` intentionally maps that path to the Compose named volume `tacticus-data`:
+
+```yaml
+volumes:
+  - tacticus-data:/data
+```
+
+This preserves behavioral parity with the existing deployment, whose live data is already in the stack's named Docker volume. Do not switch to an appdata bind mount unless you first migrate the existing `config.json` and `dumps/` into the new host directory and ensure the container can write to it.
+
+## Build and run locally
 
 ```bash
-cd tacticus-dumper
 cp .env.example .env
+# Edit .env if desired.
+docker compose -f compose.yaml build
+docker compose -f compose.yaml up -d
+curl -fsS http://127.0.0.1:${APP_PORT:-5001}/healthz
+docker compose -f compose.yaml logs -f tacticus-dumper
 ```
 
-Edit `.env` and paste your tunnel token:
+Open <http://127.0.0.1:5001> by default.
 
-```
-TUNNEL_TOKEN=eyJh...your-token-here
-```
-
-Then launch:
+To stop the app:
 
 ```bash
-docker compose up -d
+docker compose -f compose.yaml down
 ```
 
-That's it. Hit `https://tacticus.yourdomain.com` (or whatever you configured)
-from any device.
+## Deploy on Unraid through Dockhand
 
-### 3. (Optional) Lock it down with Cloudflare Access
+1. In Dockhand, use this repository's `compose.yaml`.
+2. Keep the `tacticus-data:/data` named volume mapping unless you have intentionally migrated data elsewhere.
+3. Set or review environment variables:
+   - `APP_PORT=5001` or another available host port
+   - `TZ=America/Chicago`
+   - Optional `AUTH_USER` and `AUTH_PASS`
+   - Optional `TACTICUS_KEY`
+4. Deploy the stack.
+5. Confirm the health check passes and open `http://<unraid-host>:5001`.
 
-If you want zero-trust auth instead of basic auth:
+## GitHub Container Registry publishing
 
-1. In **Zero Trust → Access → Applications**, add a self-hosted app
-2. Set the domain to match your tunnel hostname
-3. Add a policy (e.g. email allowlist, one-time PIN, etc.)
-4. Leave `AUTH_USER` and `AUTH_PASS` blank in `.env` — Cloudflare handles login
+The workflow in `.github/workflows/ghcr.yml` builds and publishes the image to GHCR on:
 
-If you'd rather use basic auth instead (or in addition), set `AUTH_USER` and
-`AUTH_PASS` in `.env`.
+- pushes to `master` or `main`
+- version tags matching `v*`, such as `v1.0.0`
+
+Published image name:
+
+```text
+ghcr.io/jshauns81/tacticus-dumper
+```
+
+The workflow writes `latest` for the default branch, tag names for version tags, and SHA tags for traceability.
+
+## Health check
+
+The container exposes an unauthenticated health endpoint:
+
+```bash
+curl -fsS http://127.0.0.1:5001/healthz
+```
+
+The Dockerfile and `compose.yaml` both use `/healthz` for health checks.
 
 ## Getting your Tacticus API key
 
-1. Go to <https://api.tacticusgame.com/>
-2. Generate a Player API key with scopes: **Player**, **Guild**, **Guild Raid**
-3. Either paste it in the web UI after launch, or set `TACTICUS_KEY` in `.env`
+1. Go to <https://api.tacticusgame.com/>.
+2. Generate a Player API key with scopes: **Player**, **Guild**, **Guild Raid**.
+3. Either paste it in the web UI after launch, or set `TACTICUS_KEY` before first start.
 
 ## What it does
 
-- Tap **Player**, **Guild**, or **Guild Raid** to fetch that endpoint's JSON
-- **Download** the JSON straight to your phone/device
-- **Copy** to clipboard
-- **Auto-saves** every fetch as a timestamped file on the server (`dumps/` folder)
-- Browse and re-download past dumps from the UI
-
-## Data persistence
-
-Everything lives in a Docker volume (`tacticus-data`):
-
-- `config.json` — your saved API key + settings
-- `dumps/` — timestamped JSON exports
-
-Survives container rebuilds. To back up:
-
-```bash
-docker cp tacticus-dumper:/data ./backup
-```
-
-## File overview
-
-```
-├── app.py              # Flask app (UI + API proxy)
-├── Dockerfile          # Python 3.12 slim + gunicorn
-├── docker-compose.yml  # App + cloudflared sidecar
-├── .env.example        # Template for your .env
-├── .dockerignore
-└── requirements.txt
-```
-
-## Adding new endpoints
-
-If Snowprint adds API endpoints, edit the `ENDPOINTS` dict in `app.py`:
-
-```python
-ENDPOINTS = {
-    "player":    {"path": "/player",    "label": "Player",     "icon": "⚔",  "desc": "..."},
-    "guild":     {"path": "/guild",     "label": "Guild",      "icon": "🛡",  "desc": "..."},
-    "guildRaid": {"path": "/guildRaid", "label": "Guild Raid", "icon": "💀",  "desc": "..."},
-    # add new ones here
-}
-```
-
-Then rebuild: `docker compose up -d --build`
+- Fetches Tacticus **Player**, **Guild**, and **Guild Raid** JSON.
+- Downloads JSON directly to your device.
+- Copies JSON to clipboard from the browser UI.
+- Auto-saves each fetch as a timestamped file in `/data/dumps` when enabled.
+- Lists and re-downloads previous dumps from the UI.
 
 ## Troubleshooting
 
 | Problem | Fix |
-|---------|-----|
-| Tunnel won't connect | Check `TUNNEL_TOKEN` in `.env`, make sure it matches the dashboard |
-| 502 from Cloudflare | The app container might not be up yet — check `docker compose logs tacticus-dumper` |
-| 401 from Tacticus API | Re-generate your key at api.tacticusgame.com — scopes may be wrong |
-| Can't reach the site | Verify the public hostname in the Cloudflare tunnel config points to `http://tacticus-dumper:5000` |
-| Downloads don't work on mobile | Make sure you're on HTTPS (Cloudflare handles this) — some browsers block downloads over HTTP |
+| --- | --- |
+| Container is unhealthy | Check `docker compose -f compose.yaml logs tacticus-dumper`; the health check calls `/healthz` on internal port `5000`. |
+| Permission errors under `/data` | The container starts as root only long enough to prepare `/data`, then drops to UID/GID `10001` before launching Gunicorn. Check logs if the volume cannot be repaired. |
+| Browser prompts for login | `AUTH_USER` is set. Use the configured credentials or unset `AUTH_USER`/`AUTH_PASS` if another access layer handles authentication. |
+| No API key saved | Paste a key in the UI or set `TACTICUS_KEY` before first container startup. |
+| 401 from Tacticus API | Re-generate your key and confirm it has the required scopes. |

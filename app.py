@@ -99,6 +99,13 @@ if _env_key:
 
 
 # ── routes ───────────────────────────────────────────────────────────────
+
+
+@app.route("/healthz")
+def healthz():
+    return jsonify({"ok": True})
+
+
 @app.route("/")
 @requires_auth
 def index():
