@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +40,9 @@ def _ability_levels(unit: dict[str, Any]) -> list[int]:
     return levels
 
 
-def normalize_player(payload: dict[str, Any]) -> dict[str, Any]:
+def normalize_player(
+    payload: dict[str, Any], *, source_path: Path | None = None
+) -> dict[str, Any]:
     """Normalize the portions of the API payload needed by Advisor V1."""
     player = payload.get("player")
     if not isinstance(player, dict):
@@ -71,11 +74,23 @@ def normalize_player(payload: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    source = {
+        "filename": source_path.name if source_path else None,
+        "imported_at": (
+            datetime.fromtimestamp(source_path.stat().st_mtime, tz=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+            if source_path
+            else None
+        ),
+    }
+
     return {
         "name": str(details.get("name") or "Unknown"),
         "power_level": int(details.get("powerLevel") or 0),
         "unit_count": len(units),
         "units": units,
+        "source": source,
     }
 
 
@@ -110,6 +125,9 @@ def summarize_roster(normalized: dict[str, Any], limit: int = 10) -> dict[str, A
         faction_counts[faction] = faction_counts.get(faction, 0) + 1
 
     return {
+        "source": normalized.get(
+            "source", {"filename": None, "imported_at": None}
+        ),
         "player": {
             "name": normalized.get("name", "Unknown"),
             "power_level": normalized.get("power_level", 0),

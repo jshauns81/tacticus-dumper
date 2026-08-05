@@ -12,7 +12,7 @@ Status: complete enough for feature development.
 
 ## Milestone 1: Account normalization
 
-Status: in progress.
+Status: complete.
 
 - load latest player dump
 - normalize character progression and abilities

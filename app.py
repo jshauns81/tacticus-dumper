@@ -25,6 +25,8 @@ from flask import (
     send_from_directory,
 )
 
+from advisor.parser import load_latest_player_dump, normalize_player, summarize_roster
+
 # ── paths ────────────────────────────────────────────────────────────────
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -248,6 +250,24 @@ def download_dump(filename: str):
     if "/" in filename or ".." in filename:
         return jsonify({"ok": False, "error": "Bad filename."}), 400
     return send_from_directory(DUMPS_DIR, filename, as_attachment=True)
+
+
+@app.route("/api/advisor/summary")
+@requires_auth
+def advisor_summary():
+    try:
+        source_path, payload = load_latest_player_dump(DUMPS_DIR)
+    except FileNotFoundError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 422
+
+    try:
+        normalized = normalize_player(payload, source_path=source_path)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": f"Invalid player structure: {exc}"}), 422
+
+    return jsonify(summarize_roster(normalized))
 
 
 # ── inline HTML ──────────────────────────────────────────────────────────

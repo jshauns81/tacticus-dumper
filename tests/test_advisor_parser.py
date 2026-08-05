@@ -75,6 +75,23 @@ def test_load_latest_player_dump(tmp_path: Path):
     assert payload["player"]["details"]["powerLevel"] == 44
 
 
+def test_normalized_player_preserves_source_metadata(tmp_path: Path):
+    dump = tmp_path / "player_20260805_120000.json"
+    dump.write_text(json.dumps(sample_payload()), encoding="utf-8")
+    import_timestamp = 1_700_000_000
+    import os
+    os.utime(dump, (import_timestamp, import_timestamp))
+
+    normalized = normalize_player(sample_payload(), source_path=dump)
+    summary = summarize_roster(normalized)
+
+    assert normalized["source"] == {
+        "filename": "player_20260805_120000.json",
+        "imported_at": "2023-11-14T22:13:20Z",
+    }
+    assert summary["source"] == normalized["source"]
+
+
 def test_missing_player_object_is_rejected():
     with pytest.raises(ValueError, match="player object"):
         normalize_player({"guild": {}})
