@@ -29,15 +29,49 @@ def load_latest_player_dump(dumps_dir: Path) -> tuple[Path, dict[str, Any]]:
     return latest, payload
 
 
-def _ability_levels(unit: dict[str, Any]) -> list[int]:
-    levels: list[int] = []
+def _abilities(unit: dict[str, Any]) -> list[dict[str, Any]]:
+    abilities: list[dict[str, Any]] = []
     for ability in unit.get("abilities") or []:
         if not isinstance(ability, dict):
             continue
+        ability_id = ability.get("id")
         level = ability.get("level")
-        if isinstance(level, int):
-            levels.append(level)
-    return levels
+        if isinstance(ability_id, str) and ability_id and isinstance(level, int):
+            abilities.append({"id": ability_id, "level": level})
+    return abilities
+
+
+def _alliance_rarity_inventory(raw: Any) -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
+    if not isinstance(raw, dict):
+        return result
+    for alliance, entries in raw.items():
+        if not isinstance(alliance, str) or not isinstance(entries, list):
+            continue
+        amounts: dict[str, int] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            rarity = entry.get("rarity")
+            amount = entry.get("amount")
+            if isinstance(rarity, str) and isinstance(amount, int):
+                amounts[rarity] = amount
+        result[alliance] = amounts
+    return result
+
+
+def _id_amount_inventory(raw: Any) -> dict[str, int]:
+    result: dict[str, int] = {}
+    if not isinstance(raw, list):
+        return result
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        entry_id = entry.get("id")
+        amount = entry.get("amount")
+        if isinstance(entry_id, str) and entry_id and isinstance(amount, int):
+            result[entry_id] = amount
+    return result
 
 
 def normalize_player(
@@ -55,8 +89,10 @@ def normalize_player(
     for raw in raw_units:
         if not isinstance(raw, dict):
             continue
-        levels = _ability_levels(raw)
+        abilities = _abilities(raw)
+        levels = [ability["level"] for ability in abilities]
         items = raw.get("items") if isinstance(raw.get("items"), list) else []
+        upgrades = raw.get("upgrades") if isinstance(raw.get("upgrades"), list) else []
         units.append(
             {
                 "id": str(raw.get("id") or ""),
@@ -68,11 +104,19 @@ def normalize_player(
                 "xp_level": int(raw.get("xpLevel") or 0),
                 "shards": int(raw.get("shards") or 0),
                 "mythic_shards": int(raw.get("mythicShards") or 0),
+                "abilities": abilities,
                 "ability_levels": levels,
                 "ability_average": round(sum(levels) / len(levels), 1) if levels else 0.0,
                 "equipped_items": len([item for item in items if isinstance(item, dict)]),
+                "equipped_upgrade_slots": sorted(
+                    {slot for slot in upgrades if isinstance(slot, int)}
+                ),
             }
         )
+
+    raw_inventory = (
+        player.get("inventory") if isinstance(player.get("inventory"), dict) else {}
+    )
 
     source = {
         "filename": source_path.name if source_path else None,
@@ -90,6 +134,16 @@ def normalize_player(
         "power_level": int(details.get("powerLevel") or 0),
         "unit_count": len(units),
         "units": units,
+        "inventory": {
+            "ability_badges": _alliance_rarity_inventory(
+                raw_inventory.get("abilityBadges")
+            ),
+            "orbs": _alliance_rarity_inventory(raw_inventory.get("orbs")),
+            "shards": _id_amount_inventory(raw_inventory.get("shards")),
+            "mythic_shards": _id_amount_inventory(
+                raw_inventory.get("mythicShards")
+            ),
+        },
         "source": source,
     }
 

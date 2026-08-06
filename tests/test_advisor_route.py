@@ -12,6 +12,13 @@ def sample_payload():
     return {
         "player": {
             "details": {"name": "Route Test Commander", "powerLevel": 21},
+            "inventory": {
+                "abilityBadges": {
+                    "Test Alliance": [
+                        {"name": "Uncommon Badge", "rarity": "Uncommon", "amount": 2}
+                    ]
+                }
+            },
             "units": [
                 {
                     "id": "testUnit",
@@ -21,7 +28,10 @@ def sample_payload():
                     "progressionIndex": 7,
                     "xpLevel": 12,
                     "rank": 3,
-                    "abilities": [{"id": "testAbility", "level": 11}],
+                    "abilities": [
+                        {"id": "testAbility", "level": 11},
+                        {"id": "testPassive", "level": 11},
+                    ],
                     "items": [],
                     "shards": 125,
                     "mythicShards": 0,
@@ -103,3 +113,62 @@ def test_advisor_summary_returns_422_for_invalid_player_structure(client):
         "ok": False,
         "error": "Invalid player structure: Player dump does not contain a player object.",
     }
+
+
+def test_advisor_actions_returns_supported_unranked_actions(client):
+    test_client, dumps_dir = client
+    payload = sample_payload()
+    dump = dumps_dir / "player_20260805_120000.json"
+    dump.write_text(json.dumps(payload), encoding="utf-8")
+
+    response = test_client.get("/api/advisor/actions")
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["coverage"] == {
+        "supported_action_types": ["ability_level"],
+        "pending_action_types": ["rank", "ascension", "equipment", "unlock"],
+        "unreported_resources": ["coins"],
+        "evaluation": "Each action is evaluated independently, not as a combined spend plan.",
+    }
+    assert result["counts"]["returned"] == 2
+    assert result["actions"][0]["id"] == "ability_level:testUnit:testAbility:12"
+    assert result["actions"][0]["costs"] == [
+        {
+            "resource": "ability_badge",
+            "alliance": "Test Alliance",
+            "rarity": "Uncommon",
+            "required": 2,
+            "available": 2,
+            "sufficient": True,
+        },
+        {
+            "resource": "coins",
+            "required": 800,
+            "available": None,
+            "sufficient": None,
+        },
+    ]
+
+
+def test_advisor_actions_returns_404_when_no_dump_exists(client):
+    test_client, _ = client
+
+    response = test_client.get("/api/advisor/actions")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "No player_*.json dumps were found."
+
+
+def test_advisor_actions_returns_422_for_malformed_json(client):
+    test_client, dumps_dir = client
+    (dumps_dir / "player_20260805_120000.json").write_text(
+        '{"player":', encoding="utf-8"
+    )
+
+    response = test_client.get("/api/advisor/actions")
+
+    assert response.status_code == 422
+    assert response.get_json()["error"] == (
+        "Latest player dump is invalid JSON: player_20260805_120000.json"
+    )

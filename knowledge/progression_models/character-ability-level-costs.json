@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "characterAbilityLevelCosts",
+  "name": "Character ability level costs",
+  "action_type": "ability_level",
+  "level_bands": [
+    {
+      "rarity": "Common",
+      "first_target_level": 2,
+      "coin_costs": [25, 50, 100, 150, 200, 300, 400],
+      "badge_costs": [1, 1, 1, 2, 2, 2, 3]
+    },
+    {
+      "rarity": "Uncommon",
+      "first_target_level": 9,
+      "coin_costs": [500, 600, 700, 800, 900, 1000, 1250, 1500, 1750],
+      "badge_costs": [1, 1, 1, 2, 2, 2, 3, 4, 5]
+    },
+    {
+      "rarity": "Rare",
+      "first_target_level": 18,
+      "coin_costs": [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000],
+      "badge_costs": [1, 1, 1, 2, 2, 2, 3, 4, 5]
+    },
+    {
+      "rarity": "Epic",
+      "first_target_level": 27,
+      "coin_costs": [6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000, 11000],
+      "badge_costs": [1, 1, 1, 2, 2, 2, 3, 4, 5]
+    },
+    {
+      "rarity": "Legendary",
+      "first_target_level": 36,
+      "coin_costs": [12000, 13000, 14000, 15000, 16000, 18000, 20000, 22500, 25000, 30000, 40000, 50000, 75000, 100000, 125000],
+      "badge_costs": [1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 8, 9, 10]
+    },
+    {
+      "rarity": "Mythic",
+      "first_target_level": 51,
+      "coin_costs": [127500, 130000, 132500, 135000, 137500, 140000, 142500, 145000, 147500, 150000],
+      "badge_costs": [1, 1, 1, 2, 2, 2, 3, 3, 4, 5]
+    }
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Abilities",
+      "notes": "Character ability coin and badge costs through level 60; page changelog updated March 2026."
+    }
+  ]
+}

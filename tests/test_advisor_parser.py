@@ -10,6 +10,19 @@ def sample_payload():
     return {
         "player": {
             "details": {"name": "Test Commander", "powerLevel": 44},
+            "inventory": {
+                "abilityBadges": {
+                    "Xenos": [
+                        {"name": "Common Xenos Badge", "rarity": "Common", "amount": 7},
+                        {"name": "Epic Xenos Badge", "rarity": "Epic", "amount": 4},
+                    ]
+                },
+                "orbs": {
+                    "Xenos": [{"rarity": "Legendary", "amount": 3}]
+                },
+                "shards": [{"id": "lockedUnit", "name": "Locked Unit", "amount": 12}],
+                "mythicShards": [],
+            },
             "units": [
                 {
                     "id": "eldarFarseer",
@@ -21,6 +34,7 @@ def sample_payload():
                     "rank": 10,
                     "abilities": [{"id": "Executioner", "level": 33}, {"id": "Doom", "level": 33}],
                     "items": [{"slotId": "Slot1"}],
+                    "upgrades": [0, 2],
                     "shards": 181,
                     "mythicShards": 0,
                 },
@@ -48,6 +62,17 @@ def test_normalize_and_summarize_player():
 
     assert normalized["name"] == "Test Commander"
     assert normalized["unit_count"] == 2
+    assert normalized["units"][0]["abilities"] == [
+        {"id": "Executioner", "level": 33},
+        {"id": "Doom", "level": 33},
+    ]
+    assert normalized["units"][0]["equipped_upgrade_slots"] == [0, 2]
+    assert normalized["inventory"] == {
+        "ability_badges": {"Xenos": {"Common": 7, "Epic": 4}},
+        "orbs": {"Xenos": {"Legendary": 3}},
+        "shards": {"lockedUnit": 12},
+        "mythic_shards": {},
+    }
     assert summary["top_invested"][0]["name"] == "Eldryon"
     assert summary["promotion_candidates"][0]["name"] == "Mataneo"
     assert summary["developed_but_low_rank"][0]["name"] == "Mataneo"

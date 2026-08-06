@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tacticus-dumper.local/schema/progression-model.schema.json",
+  "title": "Tacticus Progression Cost Model",
+  "allOf": [
+    {"$ref": "https://tacticus-dumper.local/schema/common.schema.json#/$defs/knowledge_document"},
+    {
+      "type": "object",
+      "required": ["action_type", "level_bands"],
+      "properties": {
+        "action_type": {"const": "ability_level"},
+        "level_bands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["rarity", "first_target_level", "coin_costs", "badge_costs"],
+            "properties": {
+              "rarity": {"enum": ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"]},
+              "first_target_level": {"type": "integer", "minimum": 2},
+              "coin_costs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "integer", "minimum": 0}
+              },
+              "badge_costs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "integer", "minimum": 0}
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

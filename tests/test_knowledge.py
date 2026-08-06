@@ -108,6 +108,19 @@ VALID_DOCUMENTS = {
         exclusions=[],
         candidates_by_role={"damage": ["exampleCharacter"]},
     ),
+    "progression_models": knowledge_document(
+        "exampleAbilityCosts",
+        "Example Ability Costs",
+        action_type="ability_level",
+        level_bands=[
+            {
+                "rarity": "Common",
+                "first_target_level": 2,
+                "coin_costs": [25],
+                "badge_costs": [1],
+            }
+        ],
+    ),
 }
 
 
@@ -195,6 +208,7 @@ def test_repository_knowledge_is_valid():
         "modes": ["guildRaid"],
         "encounters": [],
         "team_archetypes": ["doomMultiHitCore"],
+        "progression_models": ["characterAbilityLevelCosts"],
     }
 
 

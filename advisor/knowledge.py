@@ -18,6 +18,7 @@ KNOWLEDGE_COLLECTIONS = {
     "modes": ("mode.schema.json", "mode"),
     "encounters": ("encounter.schema.json", "encounter"),
     "team_archetypes": ("team-archetype.schema.json", "team archetype"),
+    "progression_models": ("progression-model.schema.json", "progression model"),
 }
 
 

@@ -25,6 +25,8 @@ from flask import (
     send_from_directory,
 )
 
+from advisor.actions import ActionModelError, generate_candidate_actions
+from advisor.knowledge import KnowledgeError, load_knowledge_collection
 from advisor.parser import load_latest_player_dump, normalize_player, summarize_roster
 
 # ── paths ────────────────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = DATA_DIR / "config.json"
 DUMPS_DIR = DATA_DIR / "dumps"
 DUMPS_DIR.mkdir(exist_ok=True)
+KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 
 TACTICUS_BASE = "https://api.tacticusgame.com/api/v1"
 
@@ -293,6 +296,33 @@ def advisor_summary():
         return jsonify({"ok": False, "error": f"Invalid player structure: {exc}"}), 422
 
     return jsonify(summarize_roster(normalized))
+
+
+@app.route("/api/advisor/actions")
+@requires_auth
+def advisor_actions():
+    try:
+        source_path, payload = load_latest_player_dump(DUMPS_DIR)
+    except FileNotFoundError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 422
+
+    try:
+        normalized = normalize_player(payload, source_path=source_path)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": f"Invalid player structure: {exc}"}), 422
+
+    try:
+        progression_models = load_knowledge_collection(
+            KNOWLEDGE_DIR, "progression_models"
+        )
+        result = generate_candidate_actions(normalized, progression_models)
+    except (ActionModelError, KnowledgeError) as exc:
+        app.logger.exception("Advisor action knowledge could not be loaded")
+        return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
+
+    return jsonify(result)
 
 
 # ── inline HTML ──────────────────────────────────────────────────────────

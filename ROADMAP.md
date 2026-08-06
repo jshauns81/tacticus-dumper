@@ -37,6 +37,9 @@ Exit condition: the application can load and validate versioned knowledge withou
 
 ## Milestone 3: Candidate actions
 
+Status: in progress. Ability-level candidates are supported; coin sufficiency remains
+explicitly unknown because the Player API export does not report coin inventory.
+
 - generate possible rank, ability, ascension, equipment, and unlock actions
 - calculate prerequisites and resource costs
 - filter impossible actions
