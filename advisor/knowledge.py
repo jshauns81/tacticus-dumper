@@ -128,6 +128,142 @@ def load_character_knowledge(knowledge_dir: Path) -> dict[str, dict[str, Any]]:
     return load_knowledge_collection(knowledge_dir, "characters")
 
 
+def _require_references(
+    records: dict[str, dict[str, dict[str, Any]]],
+    *,
+    source_collection: str,
+    source_id: str,
+    field: str,
+    values: list[str],
+    target_collection: str,
+) -> None:
+    missing = sorted(set(values) - records[target_collection].keys())
+    if missing:
+        missing_list = ", ".join(missing)
+        raise KnowledgeError(
+            f"Unknown {target_collection} reference in "
+            f"{source_collection}.{source_id}.{field}: {missing_list}"
+        )
+
+
+def validate_knowledge_references(
+    records: dict[str, dict[str, dict[str, Any]]],
+) -> None:
+    """Validate typed relationships between loaded knowledge documents."""
+    for character_id, character in records["characters"].items():
+        _require_references(
+            records,
+            source_collection="characters",
+            source_id=character_id,
+            field="abilities",
+            values=character.get("abilities", []),
+            target_collection="abilities",
+        )
+        mode_ids = [
+            evaluation["mode"] for evaluation in character.get("mode_evaluations", [])
+        ]
+        mode_ids.extend(
+            mode_id
+            for breakpoint in character.get("breakpoints", [])
+            for mode_id in breakpoint.get("modes", [])
+        )
+        _require_references(
+            records,
+            source_collection="characters",
+            source_id=character_id,
+            field="mode references",
+            values=mode_ids,
+            target_collection="modes",
+        )
+
+    for ability_id, ability in records["abilities"].items():
+        for field in ("produces_effects", "consumes_effects"):
+            _require_references(
+                records,
+                source_collection="abilities",
+                source_id=ability_id,
+                field=field,
+                values=ability.get(field, []),
+                target_collection="effects",
+            )
+
+    for effect_id, effect in records["effects"].items():
+        _require_references(
+            records,
+            source_collection="effects",
+            source_id=effect_id,
+            field="producer_ability_ids",
+            values=effect.get("producer_ability_ids", []),
+            target_collection="abilities",
+        )
+        _require_references(
+            records,
+            source_collection="effects",
+            source_id=effect_id,
+            field="beneficiary_character_ids",
+            values=effect.get("beneficiary_character_ids", []),
+            target_collection="characters",
+        )
+
+    for encounter_id, encounter in records["encounters"].items():
+        _require_references(
+            records,
+            source_collection="encounters",
+            source_id=encounter_id,
+            field="mode_id",
+            values=[encounter["mode_id"]],
+            target_collection="modes",
+        )
+        _require_references(
+            records,
+            source_collection="encounters",
+            source_id=encounter_id,
+            field="counter_effect_ids",
+            values=encounter.get("counter_effect_ids", []),
+            target_collection="effects",
+        )
+
+    for archetype_id, archetype in records["team_archetypes"].items():
+        _require_references(
+            records,
+            source_collection="team_archetypes",
+            source_id=archetype_id,
+            field="mode_ids",
+            values=archetype["mode_ids"],
+            target_collection="modes",
+        )
+        _require_references(
+            records,
+            source_collection="team_archetypes",
+            source_id=archetype_id,
+            field="enabling_effect_ids",
+            values=archetype.get("enabling_effect_ids", []),
+            target_collection="effects",
+        )
+
+        declared_roles = set(archetype["required_roles"])
+        declared_roles.update(archetype.get("optional_roles", []))
+        for role, character_ids in archetype.get("candidates_by_role", {}).items():
+            if role not in declared_roles:
+                raise KnowledgeError(
+                    f"Undeclared candidate role in team_archetypes.{archetype_id}: {role}"
+                )
+            _require_references(
+                records,
+                source_collection="team_archetypes",
+                source_id=archetype_id,
+                field=f"candidates_by_role.{role}",
+                values=character_ids,
+                target_collection="characters",
+            )
+            for character_id in character_ids:
+                if role not in records["characters"][character_id].get("roles", []):
+                    raise KnowledgeError(
+                        f"Character {character_id} does not declare candidate role {role} "
+                        f"for team_archetypes.{archetype_id}"
+                    )
+
+
 def validate_knowledge_repository(
     knowledge_dir: Path,
 ) -> dict[str, dict[str, dict[str, Any]]]:
@@ -154,4 +290,5 @@ def validate_knowledge_repository(
         names = ", ".join(str(path.relative_to(knowledge_dir)) for path in unsupported_files)
         raise KnowledgeError(f"Unsupported knowledge document location: {names}")
 
+    validate_knowledge_references(records)
     return records

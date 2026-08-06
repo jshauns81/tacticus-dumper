@@ -93,4 +93,6 @@ Every knowledge document includes a schema version, knowledge version, effective
 
 Versioned JSON Schemas live under `knowledge/schema/`. Supported document collections are `characters`, `abilities`, `effects`, `modes`, `encounters`, and `team_archetypes`; the repository validator rejects JSON placed outside those collection directories.
 
+Repository validation also resolves typed relationships between collections. Character abilities, produced and consumed effects, mode references, encounter counters, and team-archetype candidates must point to existing records. A team candidate must explicitly declare the role for which it is listed.
+
 Source types include official game data, official patch notes, observed player data, controlled tests, community consensus, and expert judgment. Confidence is reduced when an entry depends primarily on community consensus or judgment.

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "Executioner",
+  "name": "Executioner",
+  "ability_type": "active",
+  "targets": ["enemy_within_range_two"],
+  "mechanics": [
+    "Deals Psychic damage once for each round that has started.",
+    "If the target is defeated, an adjacent enemy receives the same round-scaled damage."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["psychic_damage", "rounds_started"],
+  "breakpoint_notes": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Eldryon",
+      "notes": "Current ability text reviewed 2026-08-05."
+    }
+  ]
+}

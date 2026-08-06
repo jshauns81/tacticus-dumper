@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "EarlyWarningOverride",
+  "name": "Early Warning Override",
+  "ability_type": "active",
+  "targets": ["free_adjacent_hexes", "enemy_in_melee_range"],
+  "mechanics": [
+    "Summons two Shield Drones into free adjacent hexes.",
+    "New Shield Drones may immediately attack an enemy in melee.",
+    "Re'vas enters Overwatch until the start of the next turn with bonus damage."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["overwatch_bonus_damage", "shield_drone_stats"],
+  "breakpoint_notes": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Re%27vas",
+      "notes": "Current ability text reviewed 2026-08-05."
+    }
+  ]
+}

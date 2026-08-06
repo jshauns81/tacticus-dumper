@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "Doom",
+  "name": "Doom",
+  "ability_type": "passive",
+  "targets": ["enemy_exactly_two_hexes_from_eldryon"],
+  "mechanics": [
+    "Adds damage to each hit of other friendly units' normal attacks against affected enemies.",
+    "Friendly Aeldari attacks receive the larger Aeldari bonus.",
+    "The added damage works against units with the Immune trait."
+  ],
+  "produces_effects": ["doomNormalAttackAmplification"],
+  "consumes_effects": [],
+  "scaling_dimensions": ["bonus_damage_per_hit"],
+  "breakpoint_notes": [
+    "Value scales with the number of normal-attack hits that can be delivered while positioning is maintained."
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Eldryon",
+      "notes": "Current ability text and February 2025 changelog."
+    }
+  ]
+}

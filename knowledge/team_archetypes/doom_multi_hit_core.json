@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "doomMultiHitCore",
+  "name": "Doom Multi-Hit Core",
+  "mode_ids": ["guildRaid"],
+  "required_roles": ["damage_amplifier", "multi_hit_normal_attacker"],
+  "optional_roles": ["markerlight_support", "sustain_or_positioning"],
+  "enabling_effect_ids": ["doomNormalAttackAmplification"],
+  "exclusions": [
+    "Do not use Eldryon where the encounter disallows Aeldari characters.",
+    "Do not use Re'vas where the encounter disallows Tau Empire characters.",
+    "Doom requires the target to remain exactly two hexes from Eldryon.",
+    "For non-Aeldari attackers, Doom amplifies normal attacks rather than ability damage."
+  ],
+  "candidates_by_role": {
+    "damage_amplifier": ["eldarFarseer"],
+    "multi_hit_normal_attacker": ["tauCrisis"]
+  },
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.xyz/raids/bosses/teams",
+      "notes": "Current observed Guild Raid team compositions include Eldryon and Re'vas together."
+    },
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Eldryon",
+      "notes": "Doom positioning and normal-attack constraints."
+    },
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Re%27vas",
+      "notes": "Re'vas multi-hit normal-attack mechanics."
+    }
+  ]
+}

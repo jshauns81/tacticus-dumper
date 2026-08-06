@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "guildRaid",
+  "name": "Guild Raid",
+  "team_size": 5,
+  "reuse_rule": "Characters may be reused between token-limited attempts.",
+  "restrictions": [
+    "A maximum of five characters may be deployed.",
+    "Characters sharing a faction with the boss or supporting battle cannot be deployed.",
+    "Bosses have the Immune trait, so effect eligibility must be verified per mechanic.",
+    "Guild Raid API access requires the Guild Raid key scope and guild leadership permission."
+  ],
+  "scoring_objectives": [
+    "Deal as much boss damage as possible within the battle turn limit.",
+    "Contribute damage toward the guild's cumulative boss defeat and season total."
+  ],
+  "resources_consumed": ["guildRaidToken"],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Guild_Raid",
+      "notes": "Mechanics and restrictions; unofficial community wiki reviewed 2026-08-05."
+    },
+    {
+      "type": "official_patch_notes",
+      "reference": "https://github.com/SnowprintStudios/tacticus-api/blob/main/CHANGELOG.md",
+      "notes": "Official API access and scope requirements."
+    }
+  ]
+}

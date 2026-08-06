@@ -21,9 +21,9 @@ VALID_CHARACTER = {
     "name": "Example Character",
     "faction_id": "ExampleFaction",
     "alliance_id": "Imperial",
-    "abilities": ["exampleActive", "examplePassive"],
+    "abilities": ["exampleActive"],
     "traits": [],
-    "roles": ["support"],
+    "roles": ["support", "damage"],
     "mode_evaluations": [],
     "breakpoints": [],
     "sources": [
@@ -73,8 +73,8 @@ VALID_DOCUMENTS = {
         scope="single_enemy",
         duration="one round",
         stacking_rule="does not stack",
-        producer_ids=["exampleActive"],
-        beneficiary_ids=[],
+        producer_ability_ids=["exampleActive"],
+        beneficiary_character_ids=[],
         beneficiary_roles=["damage"],
     ),
     "modes": knowledge_document(
@@ -121,6 +121,15 @@ def write_schemas(root: Path) -> None:
         )
 
 
+def write_valid_documents(root: Path) -> None:
+    for collection, document in VALID_DOCUMENTS.items():
+        collection_dir = root / collection
+        collection_dir.mkdir()
+        (collection_dir / "example.json").write_text(
+            json.dumps(document), encoding="utf-8"
+        )
+
+
 def test_loads_valid_character_knowledge(tmp_path: Path):
     write_schemas(tmp_path)
     character_dir = tmp_path / "characters"
@@ -132,7 +141,7 @@ def test_loads_valid_character_knowledge(tmp_path: Path):
     records = load_character_knowledge(tmp_path)
 
     assert list(records) == ["exampleCharacter"]
-    assert records["exampleCharacter"]["roles"] == ["support"]
+    assert records["exampleCharacter"]["roles"] == ["support", "damage"]
 
 
 def test_rejects_invalid_alliance(tmp_path: Path):
@@ -174,24 +183,24 @@ def test_reports_schema_errors():
 def test_repository_knowledge_is_valid():
     records = validate_knowledge_repository(Path("knowledge"))
 
-    assert records == {
-        "characters": {},
-        "abilities": {},
-        "effects": {},
-        "modes": {},
-        "encounters": {},
-        "team_archetypes": {},
+    assert {collection: sorted(entries) for collection, entries in records.items()} == {
+        "characters": ["eldarFarseer", "tauCrisis"],
+        "abilities": [
+            "CyclicIonBlaster",
+            "Doom",
+            "EarlyWarningOverride",
+            "Executioner",
+        ],
+        "effects": ["doomNormalAttackAmplification"],
+        "modes": ["guildRaid"],
+        "encounters": [],
+        "team_archetypes": ["doomMultiHitCore"],
     }
 
 
 def test_loads_every_supported_knowledge_collection(tmp_path: Path):
     write_schemas(tmp_path)
-    for collection, document in VALID_DOCUMENTS.items():
-        collection_dir = tmp_path / collection
-        collection_dir.mkdir()
-        (collection_dir / "example.json").write_text(
-            json.dumps(document), encoding="utf-8"
-        )
+    write_valid_documents(tmp_path)
 
     records = validate_knowledge_repository(tmp_path)
 
@@ -219,6 +228,33 @@ def test_shared_metadata_rules_apply_to_new_collections(tmp_path: Path):
 def test_rejects_unsupported_knowledge_collection(tmp_path: Path):
     with pytest.raises(KnowledgeError, match="Unsupported knowledge collection"):
         load_knowledge_collection(tmp_path, "unknown")
+
+
+def test_repository_validation_rejects_unknown_references(tmp_path: Path):
+    write_schemas(tmp_path)
+    write_valid_documents(tmp_path)
+    ability_path = tmp_path / "abilities" / "example.json"
+    invalid = json.loads(ability_path.read_text(encoding="utf-8"))
+    invalid["produces_effects"] = ["missingEffect"]
+    ability_path.write_text(json.dumps(invalid), encoding="utf-8")
+
+    with pytest.raises(
+        KnowledgeError,
+        match=r"abilities\.exampleActive\.produces_effects: missingEffect",
+    ):
+        validate_knowledge_repository(tmp_path)
+
+
+def test_repository_validation_rejects_candidate_role_mismatch(tmp_path: Path):
+    write_schemas(tmp_path)
+    write_valid_documents(tmp_path)
+    character_path = tmp_path / "characters" / "example.json"
+    invalid = json.loads(character_path.read_text(encoding="utf-8"))
+    invalid["roles"] = ["support"]
+    character_path.write_text(json.dumps(invalid), encoding="utf-8")
+
+    with pytest.raises(KnowledgeError, match="does not declare candidate role damage"):
+        validate_knowledge_repository(tmp_path)
 
 
 def test_repository_validation_rejects_unhandled_json(tmp_path: Path):

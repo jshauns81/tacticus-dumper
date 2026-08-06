@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "doomNormalAttackAmplification",
+  "name": "Doom Normal-Attack Amplification",
+  "effect_type": "damage_amplification",
+  "scope": "Enemy units exactly two hexes from Eldryon.",
+  "duration": "While the enemy remains exactly two hexes from Eldryon.",
+  "producer_ability_ids": ["Doom"],
+  "beneficiary_character_ids": [],
+  "beneficiary_roles": ["multi_hit_normal_attacker", "aeldari_attacker"],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Eldryon",
+      "notes": "Doom mechanics after the February 2025 normal-attack rework."
+    }
+  ]
+}

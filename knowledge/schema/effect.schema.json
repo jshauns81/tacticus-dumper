@@ -12,12 +12,12 @@
         "scope": {"type": "string", "minLength": 1},
         "duration": {"type": "string", "minLength": 1},
         "stacking_rule": {"type": "string", "minLength": 1},
-        "producer_ids": {
+        "producer_ability_ids": {
           "type": "array",
           "items": {"type": "string", "minLength": 1},
           "uniqueItems": true
         },
-        "beneficiary_ids": {
+        "beneficiary_character_ids": {
           "type": "array",
           "items": {"type": "string", "minLength": 1},
           "uniqueItems": true

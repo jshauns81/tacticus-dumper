@@ -25,11 +25,13 @@ Exit condition: a saved player dump can be converted into a stable internal acco
 
 ## Milestone 2: Knowledge foundation
 
+Status: complete.
+
 - add machine-readable schemas
 - add version and source metadata
 - define schemas for characters, abilities, effects, modes, encounters, and team archetypes
 - seed a small Guild Raid-focused character set
-- validate every knowledge file in CI (character documents covered; expand with each schema)
+- validate every knowledge file and typed relationship in CI
 
 Exit condition: the application can load and validate versioned knowledge without strategic code depending on character names.
 

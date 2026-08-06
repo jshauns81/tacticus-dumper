@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "tauCrisis",
+  "name": "Re'vas",
+  "faction_id": "Tau Empire",
+  "alliance_id": "Xenos",
+  "abilities": ["EarlyWarningOverride", "CyclicIonBlaster"],
+  "traits": ["Big Target", "Flying", "Mechanical", "Ranged Specialist"],
+  "roles": ["multi_hit_normal_attacker", "mechanical_damage", "summoner"],
+  "mode_evaluations": [],
+  "breakpoints": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Re%27vas",
+      "notes": "Character faction, traits, current abilities, and recent balance history."
+    },
+    {
+      "type": "observed_player_data",
+      "reference": "Sanitized Tacticus Player API export",
+      "notes": "Stable API character and ability identifiers only; no player values retained."
+    }
+  ]
+}

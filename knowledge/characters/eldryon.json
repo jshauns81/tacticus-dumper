@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "eldarFarseer",
+  "name": "Eldryon",
+  "faction_id": "Aeldari",
+  "alliance_id": "Xenos",
+  "abilities": ["Executioner", "Doom"],
+  "traits": ["Psyker"],
+  "roles": ["damage_amplifier", "positioning_dependent_support"],
+  "mode_evaluations": [],
+  "breakpoints": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Eldryon",
+      "notes": "Character faction, traits, and current ability mechanics."
+    },
+    {
+      "type": "observed_player_data",
+      "reference": "Sanitized Tacticus Player API export",
+      "notes": "Stable API character and ability identifiers only; no player values retained."
+    }
+  ]
+}
