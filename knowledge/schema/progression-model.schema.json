@@ -6,9 +6,9 @@
     {"$ref": "https://tacticus-dumper.local/schema/common.schema.json#/$defs/knowledge_document"},
     {
       "type": "object",
-      "required": ["action_type", "level_bands"],
+      "required": ["action_type"],
       "properties": {
-        "action_type": {"const": "ability_level"},
+        "action_type": {"enum": ["ability_level", "unit_progression"]},
         "level_bands": {
           "type": "array",
           "minItems": 1,
@@ -31,8 +31,54 @@
             },
             "additionalProperties": false
           }
+        },
+        "max_progression_index": {"type": "integer", "minimum": 1},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "current_progression_index",
+              "target_progression_index",
+              "target_label",
+              "action_type",
+              "shard_resource",
+              "shard_amount"
+            ],
+            "properties": {
+              "current_progression_index": {"type": "integer", "minimum": 0},
+              "target_progression_index": {"type": "integer", "minimum": 1},
+              "target_label": {"type": "string", "minLength": 1},
+              "action_type": {"enum": ["promotion", "ascension"]},
+              "shard_resource": {"enum": ["shards", "mythic_shards"]},
+              "shard_amount": {"type": "integer", "minimum": 1},
+              "orb": {
+                "type": "object",
+                "required": ["rarity", "amount"],
+                "properties": {
+                  "rarity": {"enum": ["Uncommon", "Rare", "Epic", "Legendary", "Mythic"]},
+                  "amount": {"type": "integer", "minimum": 1}
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
         }
-      }
+      },
+      "oneOf": [
+        {
+          "properties": {"action_type": {"const": "ability_level"}},
+          "required": ["level_bands"],
+          "not": {"required": ["steps"]}
+        },
+        {
+          "properties": {"action_type": {"const": "unit_progression"}},
+          "required": ["max_progression_index", "steps"],
+          "not": {"required": ["level_bands"]}
+        }
+      ]
     }
   ],
   "unevaluatedProperties": false

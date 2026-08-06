@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.05",
+  "effective_from": "2026-08-05",
+  "last_reviewed": "2026-08-05",
+  "id": "unitPromotionAscensionCosts",
+  "name": "Unit promotion and ascension costs",
+  "action_type": "unit_progression",
+  "max_progression_index": 19,
+  "steps": [
+    {"current_progression_index": 0, "target_progression_index": 1, "target_label": "1 Star", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 10},
+    {"current_progression_index": 1, "target_progression_index": 2, "target_label": "2 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 15},
+    {"current_progression_index": 2, "target_progression_index": 3, "target_label": "Uncommon 2 Stars", "action_type": "ascension", "shard_resource": "shards", "shard_amount": 15, "orb": {"rarity": "Uncommon", "amount": 10}},
+    {"current_progression_index": 3, "target_progression_index": 4, "target_label": "3 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 15},
+    {"current_progression_index": 4, "target_progression_index": 5, "target_label": "4 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 15},
+    {"current_progression_index": 5, "target_progression_index": 6, "target_label": "Rare 4 Stars", "action_type": "ascension", "shard_resource": "shards", "shard_amount": 20, "orb": {"rarity": "Rare", "amount": 10}},
+    {"current_progression_index": 6, "target_progression_index": 7, "target_label": "5 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 30},
+    {"current_progression_index": 7, "target_progression_index": 8, "target_label": "6 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 40},
+    {"current_progression_index": 8, "target_progression_index": 9, "target_label": "Epic 6 Stars", "action_type": "ascension", "shard_resource": "shards", "shard_amount": 50, "orb": {"rarity": "Epic", "amount": 10}},
+    {"current_progression_index": 9, "target_progression_index": 10, "target_label": "7 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 65},
+    {"current_progression_index": 10, "target_progression_index": 11, "target_label": "8 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 85},
+    {"current_progression_index": 11, "target_progression_index": 12, "target_label": "Legendary 8 Stars", "action_type": "ascension", "shard_resource": "shards", "shard_amount": 100, "orb": {"rarity": "Legendary", "amount": 10}},
+    {"current_progression_index": 12, "target_progression_index": 13, "target_label": "9 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 150, "orb": {"rarity": "Legendary", "amount": 10}},
+    {"current_progression_index": 13, "target_progression_index": 14, "target_label": "10 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 250, "orb": {"rarity": "Legendary", "amount": 15}},
+    {"current_progression_index": 14, "target_progression_index": 15, "target_label": "11 Stars", "action_type": "promotion", "shard_resource": "shards", "shard_amount": 500, "orb": {"rarity": "Legendary", "amount": 20}},
+    {"current_progression_index": 15, "target_progression_index": 16, "target_label": "Mythic 11 Stars", "action_type": "ascension", "shard_resource": "mythic_shards", "shard_amount": 20, "orb": {"rarity": "Mythic", "amount": 10}},
+    {"current_progression_index": 16, "target_progression_index": 17, "target_label": "12 Stars", "action_type": "promotion", "shard_resource": "mythic_shards", "shard_amount": 30, "orb": {"rarity": "Mythic", "amount": 10}},
+    {"current_progression_index": 17, "target_progression_index": 18, "target_label": "13 Stars", "action_type": "promotion", "shard_resource": "mythic_shards", "shard_amount": 50, "orb": {"rarity": "Mythic", "amount": 15}},
+    {"current_progression_index": 18, "target_progression_index": 19, "target_label": "14 Stars", "action_type": "promotion", "shard_resource": "mythic_shards", "shard_amount": 100, "orb": {"rarity": "Mythic", "amount": 25}}
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Unit_Progression",
+      "notes": "Promotion and ascension shard/orb costs through Mythic 14 Stars; page last edited June 26, 2026."
+    },
+    {
+      "type": "observed_player_data",
+      "reference": "Sanitized Player API export structure",
+      "notes": "Validated progressionIndex rarity boundaries and alliance orb rarity labels without recording player-specific values."
+    }
+  ]
+}

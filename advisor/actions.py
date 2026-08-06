@@ -46,20 +46,69 @@ def _ability_cost_table(
     return costs, model
 
 
+def _unit_progression_table(
+    progression_models: dict[str, dict[str, Any]],
+) -> tuple[dict[int, dict[str, Any]], dict[str, Any]]:
+    matching = [
+        model
+        for model in progression_models.values()
+        if model.get("action_type") == "unit_progression"
+    ]
+    if len(matching) != 1:
+        raise ActionModelError(
+            "Expected exactly one unit_progression progression model."
+        )
+
+    model = matching[0]
+    steps: dict[int, dict[str, Any]] = {}
+    for step in model["steps"]:
+        current_index = step["current_progression_index"]
+        target_index = step["target_progression_index"]
+        if current_index in steps:
+            raise ActionModelError(
+                f"Progression model {model['id']} repeats index {current_index}."
+            )
+        if target_index != current_index + 1:
+            raise ActionModelError(
+                f"Progression model {model['id']} skips from index "
+                f"{current_index} to {target_index}."
+            )
+        steps[current_index] = step
+    return steps, model
+
+
+def _model_metadata(model: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": model["id"],
+        "knowledge_version": model["knowledge_version"],
+        "last_reviewed": model["last_reviewed"],
+        "sources": model["sources"],
+    }
+
+
 def generate_candidate_actions(
     normalized: dict[str, Any],
     progression_models: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     """Return currently supported, factual actions without strategic ranking."""
-    costs_by_level, cost_model = _ability_cost_table(progression_models)
+    costs_by_level, ability_cost_model = _ability_cost_table(progression_models)
+    progression_steps, unit_progression_model = _unit_progression_table(
+        progression_models
+    )
     inventory = normalized.get("inventory") or {}
     badge_inventory = inventory.get("ability_badges") or {}
+    orb_inventory = inventory.get("orbs") or {}
 
     actions: list[dict[str, Any]] = []
     excluded = {
         "ability_at_character_level": 0,
         "insufficient_ability_badges": 0,
+        "insufficient_character_shards": 0,
+        "insufficient_mythic_shards": 0,
+        "insufficient_orbs": 0,
+        "progression_maxed": 0,
         "unsupported_unit_ability_layout": 0,
+        "unsupported_progression_index": 0,
         "unsupported_target_level": 0,
     }
 
@@ -75,7 +124,7 @@ def generate_candidate_actions(
         )
         if len(abilities) != 2:
             excluded["unsupported_unit_ability_layout"] += len(abilities)
-            continue
+            abilities = []
         for ability in abilities:
             current_level = ability["level"]
             target_level = current_level + 1
@@ -133,6 +182,77 @@ def generate_candidate_actions(
                 }
             )
 
+        current_index = unit["progression_index"]
+        step = progression_steps.get(current_index)
+        if step is None:
+            if current_index == unit_progression_model["max_progression_index"]:
+                excluded["progression_maxed"] += 1
+            else:
+                excluded["unsupported_progression_index"] += 1
+            continue
+
+        shard_resource = step["shard_resource"]
+        shards_available = unit[shard_resource]
+        if shards_available < step["shard_amount"]:
+            reason = (
+                "insufficient_mythic_shards"
+                if shard_resource == "mythic_shards"
+                else "insufficient_character_shards"
+            )
+            excluded[reason] += 1
+            continue
+
+        orb = step.get("orb")
+        orbs_available = None
+        if orb is not None:
+            orbs_available = orb_inventory.get(alliance, {}).get(orb["rarity"], 0)
+            if orbs_available < orb["amount"]:
+                excluded["insufficient_orbs"] += 1
+                continue
+
+        costs = [
+            {
+                "resource": (
+                    "mythic_character_shard"
+                    if shard_resource == "mythic_shards"
+                    else "character_shard"
+                ),
+                "character_id": unit["id"],
+                "required": step["shard_amount"],
+                "available": shards_available,
+                "sufficient": True,
+            }
+        ]
+        if orb is not None:
+            costs.append(
+                {
+                    "resource": "orb",
+                    "alliance": alliance,
+                    "rarity": orb["rarity"],
+                    "required": orb["amount"],
+                    "available": orbs_available,
+                    "sufficient": True,
+                }
+            )
+
+        actions.append(
+            {
+                "id": f"{step['action_type']}:{unit['id']}:{step['target_progression_index']}",
+                "type": step["action_type"],
+                "character": {"id": unit["id"], "name": unit["name"]},
+                "progression": {
+                    "current_index": current_index,
+                    "target_index": step["target_progression_index"],
+                    "target_label": step["target_label"],
+                },
+                "prerequisites": [],
+                "costs": costs,
+                "availability": "ready",
+            }
+        )
+
+    actions.sort(key=lambda action: action["id"])
+
     return {
         "source": normalized.get("source", {"filename": None, "imported_at": None}),
         "player": {
@@ -147,21 +267,18 @@ def generate_candidate_actions(
             "excluded_by_reason": excluded,
         },
         "coverage": {
-            "supported_action_types": ["ability_level"],
+            "supported_action_types": ["ability_level", "ascension", "promotion"],
             "pending_action_types": [
                 "rank",
-                "ascension",
                 "equipment",
                 "unlock",
             ],
             "unreported_resources": ["coins"],
             "evaluation": "Each action is evaluated independently, not as a combined spend plan.",
         },
-        "cost_model": {
-            "id": cost_model["id"],
-            "knowledge_version": cost_model["knowledge_version"],
-            "last_reviewed": cost_model["last_reviewed"],
-            "sources": cost_model["sources"],
+        "cost_models": {
+            "ability_level": _model_metadata(ability_cost_model),
+            "unit_progression": _model_metadata(unit_progression_model),
         },
         "scope": "Unranked factual candidate actions; strategic scoring is not enabled.",
     }

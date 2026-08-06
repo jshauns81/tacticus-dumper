@@ -126,12 +126,12 @@ def test_advisor_actions_returns_supported_unranked_actions(client):
     assert response.status_code == 200
     result = response.get_json()
     assert result["coverage"] == {
-        "supported_action_types": ["ability_level"],
-        "pending_action_types": ["rank", "ascension", "equipment", "unlock"],
+        "supported_action_types": ["ability_level", "ascension", "promotion"],
+        "pending_action_types": ["rank", "equipment", "unlock"],
         "unreported_resources": ["coins"],
         "evaluation": "Each action is evaluated independently, not as a combined spend plan.",
     }
-    assert result["counts"]["returned"] == 2
+    assert result["counts"]["returned"] == 3
     assert result["actions"][0]["id"] == "ability_level:testUnit:testAbility:12"
     assert result["actions"][0]["costs"] == [
         {
@@ -149,6 +149,8 @@ def test_advisor_actions_returns_supported_unranked_actions(client):
             "sufficient": None,
         },
     ]
+    assert result["actions"][2]["id"] == "promotion:testUnit:8"
+    assert result["actions"][2]["availability"] == "ready"
 
 
 def test_advisor_actions_returns_404_when_no_dump_exists(client):

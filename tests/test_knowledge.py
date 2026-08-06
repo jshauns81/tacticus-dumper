@@ -208,7 +208,10 @@ def test_repository_knowledge_is_valid():
         "modes": ["guildRaid"],
         "encounters": [],
         "team_archetypes": ["doomMultiHitCore"],
-        "progression_models": ["characterAbilityLevelCosts"],
+        "progression_models": [
+            "characterAbilityLevelCosts",
+            "unitPromotionAscensionCosts",
+        ],
     }
 
 
