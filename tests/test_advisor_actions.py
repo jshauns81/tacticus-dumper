@@ -54,6 +54,24 @@ def progression_models():
             ],
             "sources": [{"type": "controlled_test", "reference": "fixture"}],
         },
+        "testUnlock": {
+            "id": "testUnlock",
+            "knowledge_version": "test",
+            "last_reviewed": "2026-08-06",
+            "action_type": "unlock",
+            "unlock_costs": [
+                {"base_rarity": "Uncommon", "target_progression_index": 3, "shards": 80},
+                {"base_rarity": "Rare", "target_progression_index": 6, "shards": 130},
+            ],
+            "sources": [{"type": "controlled_test", "reference": "fixture"}],
+        },
+    }
+
+
+def character_knowledge():
+    return {
+        "locked": {"id": "locked", "name": "Locked", "base_rarity": "Rare"},
+        "short": {"id": "short", "name": "Short", "base_rarity": "Uncommon"},
     }
 
 
@@ -69,6 +87,7 @@ def normalized_player():
                 "Imperial": {"Uncommon": 0},
             },
             "orbs": {"Xenos": {"Uncommon": 10}},
+            "shards": {"locked": 130, "short": 79, "unknown": 999},
         },
         "units": [
             {
@@ -115,7 +134,9 @@ def normalized_player():
 
 
 def test_generates_deterministic_actions_and_filters_known_blockers():
-    result = generate_candidate_actions(normalized_player(), progression_models())
+    result = generate_candidate_actions(
+        normalized_player(), progression_models(), character_knowledge()
+    )
 
     assert [action["id"] for action in result["actions"]] == [
         "ability_level:alpha:alphaActive:9",
@@ -123,17 +144,20 @@ def test_generates_deterministic_actions_and_filters_known_blockers():
         "ability_level:zeta:zetaActive:8",
         "ability_level:zeta:zetaPassive:8",
         "ascension:alpha:3",
+        "unlock:locked:6",
     ]
     assert result["counts"] == {
-        "returned": 5,
-        "excluded": 4,
+        "returned": 6,
+        "excluded": 6,
         "excluded_by_reason": {
             "ability_at_character_level": 1,
             "insufficient_ability_badges": 1,
             "insufficient_character_shards": 1,
             "insufficient_mythic_shards": 0,
             "insufficient_orbs": 0,
+            "insufficient_unlock_shards": 1,
             "progression_maxed": 1,
+            "unsupported_unlock_character": 1,
             "unsupported_unit_ability_layout": 0,
             "unsupported_progression_index": 0,
             "unsupported_target_level": 0,
@@ -142,7 +166,9 @@ def test_generates_deterministic_actions_and_filters_known_blockers():
 
 
 def test_reports_known_costs_and_marks_unreported_coins_unknown():
-    result = generate_candidate_actions(normalized_player(), progression_models())
+    result = generate_candidate_actions(
+        normalized_player(), progression_models(), character_knowledge()
+    )
     action = result["actions"][0]
 
     assert action["prerequisites"] == [
@@ -173,7 +199,9 @@ def test_reports_known_costs_and_marks_unreported_coins_unknown():
 
 
 def test_generates_resource_ready_ascension_action():
-    result = generate_candidate_actions(normalized_player(), progression_models())
+    result = generate_candidate_actions(
+        normalized_player(), progression_models(), character_knowledge()
+    )
     action = next(action for action in result["actions"] if action["type"] == "ascension")
 
     assert action == {
@@ -207,12 +235,49 @@ def test_generates_resource_ready_ascension_action():
     }
 
 
+def test_generates_unlock_only_for_known_character_with_enough_shards():
+    result = generate_candidate_actions(
+        normalized_player(), progression_models(), character_knowledge()
+    )
+    unlocks = [action for action in result["actions"] if action["type"] == "unlock"]
+
+    assert unlocks == [
+        {
+            "id": "unlock:locked:6",
+            "type": "unlock",
+            "character": {"id": "locked", "name": "Locked"},
+            "progression": {
+                "current_index": None,
+                "target_index": 6,
+                "target_label": "Rare Unlock",
+            },
+            "prerequisites": [],
+            "costs": [
+                {
+                    "resource": "character_shard",
+                    "character_id": "locked",
+                    "required": 130,
+                    "available": 130,
+                    "sufficient": True,
+                }
+            ],
+            "availability": "ready",
+        }
+    ]
+    assert result["coverage"]["unlock_knowledge"] == {
+        "known_characters": 2,
+        "unmapped_unowned_shard_records": 1,
+    }
+
+
 def test_rejects_ambiguous_or_malformed_cost_models():
     models = progression_models()
     models["duplicate"] = dict(models["testCosts"], id="duplicate")
 
     try:
-        generate_candidate_actions(normalized_player(), models)
+        generate_candidate_actions(
+            normalized_player(), models, character_knowledge()
+        )
     except ActionModelError as exc:
         assert "exactly one" in str(exc)
     else:
@@ -221,7 +286,9 @@ def test_rejects_ambiguous_or_malformed_cost_models():
     malformed = progression_models()
     malformed["testCosts"]["level_bands"][0]["badge_costs"] = [1]
     try:
-        generate_candidate_actions(normalized_player(), malformed)
+        generate_candidate_actions(
+            normalized_player(), malformed, character_knowledge()
+        )
     except ActionModelError as exc:
         assert "unequal cost arrays" in str(exc)
     else:
@@ -271,7 +338,7 @@ def test_repository_progression_model_preserves_rarity_boundaries():
         ],
     }
 
-    result = generate_candidate_actions(normalized, models)
+    result = generate_candidate_actions(normalized, models, {})
     progression_actions = [
         action for action in result["actions"] if action["type"] != "ability_level"
     ]

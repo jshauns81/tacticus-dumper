@@ -77,6 +77,29 @@ def _unit_progression_table(
     return steps, model
 
 
+def _unlock_cost_table(
+    progression_models: dict[str, dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    matching = [
+        model
+        for model in progression_models.values()
+        if model.get("action_type") == "unlock"
+    ]
+    if len(matching) != 1:
+        raise ActionModelError("Expected exactly one unlock progression model.")
+
+    model = matching[0]
+    costs: dict[str, dict[str, Any]] = {}
+    for cost in model["unlock_costs"]:
+        rarity = cost["base_rarity"]
+        if rarity in costs:
+            raise ActionModelError(
+                f"Progression model {model['id']} repeats base rarity {rarity}."
+            )
+        costs[rarity] = cost
+    return costs, model
+
+
 def _model_metadata(model: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": model["id"],
@@ -89,12 +112,15 @@ def _model_metadata(model: dict[str, Any]) -> dict[str, Any]:
 def generate_candidate_actions(
     normalized: dict[str, Any],
     progression_models: dict[str, dict[str, Any]],
+    character_knowledge: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Return currently supported, factual actions without strategic ranking."""
     costs_by_level, ability_cost_model = _ability_cost_table(progression_models)
     progression_steps, unit_progression_model = _unit_progression_table(
         progression_models
     )
+    unlock_costs, unlock_cost_model = _unlock_cost_table(progression_models)
+    character_knowledge = character_knowledge or {}
     inventory = normalized.get("inventory") or {}
     badge_inventory = inventory.get("ability_badges") or {}
     orb_inventory = inventory.get("orbs") or {}
@@ -106,7 +132,9 @@ def generate_candidate_actions(
         "insufficient_character_shards": 0,
         "insufficient_mythic_shards": 0,
         "insufficient_orbs": 0,
+        "insufficient_unlock_shards": 0,
         "progression_maxed": 0,
+        "unsupported_unlock_character": 0,
         "unsupported_unit_ability_layout": 0,
         "unsupported_progression_index": 0,
         "unsupported_target_level": 0,
@@ -251,6 +279,49 @@ def generate_candidate_actions(
             }
         )
 
+    owned_character_ids = {unit["id"] for unit in units}
+    shard_inventory = inventory.get("shards") or {}
+    unowned_shard_ids = set(shard_inventory) - owned_character_ids
+    excluded["unsupported_unlock_character"] = len(
+        unowned_shard_ids - character_knowledge.keys()
+    )
+
+    for character_id, character in sorted(character_knowledge.items()):
+        if character_id in owned_character_ids:
+            continue
+        cost = unlock_costs.get(character["base_rarity"])
+        if cost is None:
+            raise ActionModelError(
+                f"No unlock cost for base rarity {character['base_rarity']}."
+            )
+        shards_available = shard_inventory.get(character_id, 0)
+        if shards_available < cost["shards"]:
+            excluded["insufficient_unlock_shards"] += 1
+            continue
+        actions.append(
+            {
+                "id": f"unlock:{character_id}:{cost['target_progression_index']}",
+                "type": "unlock",
+                "character": {"id": character_id, "name": character["name"]},
+                "progression": {
+                    "current_index": None,
+                    "target_index": cost["target_progression_index"],
+                    "target_label": f"{character['base_rarity']} Unlock",
+                },
+                "prerequisites": [],
+                "costs": [
+                    {
+                        "resource": "character_shard",
+                        "character_id": character_id,
+                        "required": cost["shards"],
+                        "available": shards_available,
+                        "sufficient": True,
+                    }
+                ],
+                "availability": "ready",
+            }
+        )
+
     actions.sort(key=lambda action: action["id"])
 
     return {
@@ -267,18 +338,29 @@ def generate_candidate_actions(
             "excluded_by_reason": excluded,
         },
         "coverage": {
-            "supported_action_types": ["ability_level", "ascension", "promotion"],
+            "supported_action_types": [
+                "ability_level",
+                "ascension",
+                "promotion",
+                "unlock",
+            ],
             "pending_action_types": [
                 "rank",
                 "equipment",
-                "unlock",
             ],
             "unreported_resources": ["coins"],
             "evaluation": "Each action is evaluated independently, not as a combined spend plan.",
+            "unlock_knowledge": {
+                "known_characters": len(character_knowledge),
+                "unmapped_unowned_shard_records": excluded[
+                    "unsupported_unlock_character"
+                ],
+            },
         },
         "cost_models": {
             "ability_level": _model_metadata(ability_cost_model),
             "unit_progression": _model_metadata(unit_progression_model),
+            "unlock": _model_metadata(unlock_cost_model),
         },
         "scope": "Unranked factual candidate actions; strategic scoring is not enabled.",
     }

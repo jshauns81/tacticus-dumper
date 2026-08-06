@@ -6,10 +6,11 @@
     {"$ref": "https://tacticus-dumper.local/schema/common.schema.json#/$defs/knowledge_document"},
     {
       "type": "object",
-      "required": ["faction_id", "alliance_id"],
+      "required": ["faction_id", "alliance_id", "base_rarity"],
       "properties": {
         "faction_id": {"type": "string", "minLength": 1},
         "alliance_id": {"enum": ["Imperial", "Chaos", "Xenos"]},
+        "base_rarity": {"enum": ["Common", "Uncommon", "Rare", "Epic", "Legendary"]},
         "abilities": {
           "type": "array",
           "items": {"type": "string", "minLength": 1},

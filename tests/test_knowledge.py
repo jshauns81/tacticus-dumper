@@ -21,6 +21,7 @@ VALID_CHARACTER = {
     "name": "Example Character",
     "faction_id": "ExampleFaction",
     "alliance_id": "Imperial",
+    "base_rarity": "Common",
     "abilities": ["exampleActive"],
     "traits": [],
     "roles": ["support", "damage"],
@@ -210,6 +211,7 @@ def test_repository_knowledge_is_valid():
         "team_archetypes": ["doomMultiHitCore"],
         "progression_models": [
             "characterAbilityLevelCosts",
+            "characterUnlockCosts",
             "unitPromotionAscensionCosts",
         ],
     }

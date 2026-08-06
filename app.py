@@ -26,7 +26,7 @@ from flask import (
 )
 
 from advisor.actions import ActionModelError, generate_candidate_actions
-from advisor.knowledge import KnowledgeError, load_knowledge_collection
+from advisor.knowledge import KnowledgeError, validate_knowledge_repository
 from advisor.parser import load_latest_player_dump, normalize_player, summarize_roster
 
 # ── paths ────────────────────────────────────────────────────────────────
@@ -314,10 +314,12 @@ def advisor_actions():
         return jsonify({"ok": False, "error": f"Invalid player structure: {exc}"}), 422
 
     try:
-        progression_models = load_knowledge_collection(
-            KNOWLEDGE_DIR, "progression_models"
+        knowledge = validate_knowledge_repository(KNOWLEDGE_DIR)
+        result = generate_candidate_actions(
+            normalized,
+            knowledge["progression_models"],
+            knowledge["characters"],
         )
-        result = generate_candidate_actions(normalized, progression_models)
     except (ActionModelError, KnowledgeError) as exc:
         app.logger.exception("Advisor action knowledge could not be loaded")
         return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
