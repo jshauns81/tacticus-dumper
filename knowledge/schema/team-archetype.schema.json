@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tacticus-dumper.local/schema/team-archetype.schema.json",
+  "title": "Tacticus Team Archetype Knowledge",
+  "allOf": [
+    {"$ref": "https://tacticus-dumper.local/schema/common.schema.json#/$defs/knowledge_document"},
+    {
+      "type": "object",
+      "required": ["mode_ids", "required_roles"],
+      "properties": {
+        "mode_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "required_roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "optional_roles": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "enabling_effect_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "candidates_by_role": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

@@ -91,4 +91,6 @@ A recommendation contains:
 
 Every knowledge document includes a schema version, knowledge version, effective date, last-reviewed date, and sources.
 
+Versioned JSON Schemas live under `knowledge/schema/`. Supported document collections are `characters`, `abilities`, `effects`, `modes`, `encounters`, and `team_archetypes`; the repository validator rejects JSON placed outside those collection directories.
+
 Source types include official game data, official patch notes, observed player data, controlled tests, community consensus, and expert judgment. Confidence is reduced when an entry depends primarily on community consensus or judgment.

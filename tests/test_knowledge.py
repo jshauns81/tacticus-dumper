@@ -6,6 +6,7 @@ import pytest
 from advisor.knowledge import (
     KnowledgeError,
     load_character_knowledge,
+    load_knowledge_collection,
     validate_document,
     validate_knowledge_repository,
 )
@@ -34,15 +35,94 @@ VALID_CHARACTER = {
 }
 
 
-def write_schema(root: Path) -> None:
-    repository_schema = Path("knowledge/schema/character.schema.json")
-    target = root / "schema" / "character.schema.json"
-    target.parent.mkdir(parents=True)
-    target.write_text(repository_schema.read_text(encoding="utf-8"), encoding="utf-8")
+def knowledge_document(record_id: str, name: str, **fields):
+    return {
+        "schema_version": 1,
+        "knowledge_version": "2026.08.05",
+        "effective_from": "2026-08-05",
+        "last_reviewed": "2026-08-05",
+        "id": record_id,
+        "name": name,
+        **fields,
+        "sources": [
+            {
+                "type": "observed_player_data",
+                "reference": "sanitized test fixture",
+            }
+        ],
+    }
+
+
+VALID_DOCUMENTS = {
+    "characters": VALID_CHARACTER,
+    "abilities": knowledge_document(
+        "exampleActive",
+        "Example Active",
+        ability_type="active",
+        targets=["single_enemy"],
+        mechanics=["damage"],
+        produces_effects=["exampleDebuff"],
+        consumes_effects=[],
+        scaling_dimensions=["damage"],
+        breakpoint_notes=[],
+    ),
+    "effects": knowledge_document(
+        "exampleDebuff",
+        "Example Debuff",
+        effect_type="debuff",
+        scope="single_enemy",
+        duration="one round",
+        stacking_rule="does not stack",
+        producer_ids=["exampleActive"],
+        beneficiary_ids=[],
+        beneficiary_roles=["damage"],
+    ),
+    "modes": knowledge_document(
+        "exampleMode",
+        "Example Mode",
+        team_size=5,
+        reuse_rule="unrestricted",
+        restrictions=[],
+        scoring_objectives=["deal damage"],
+        resources_consumed=["exampleToken"],
+    ),
+    "encounters": knowledge_document(
+        "exampleEncounter",
+        "Example Encounter",
+        mode_id="exampleMode",
+        effective_game_version="example-version",
+        restrictions=[],
+        phases=[
+            {"id": "phaseOne", "name": "Phase One", "mechanics": ["example"]}
+        ],
+        counter_effect_ids=["exampleDebuff"],
+        scoring_considerations=["example consideration"],
+    ),
+    "team_archetypes": knowledge_document(
+        "exampleTeam",
+        "Example Team",
+        mode_ids=["exampleMode"],
+        required_roles=["damage"],
+        optional_roles=["support"],
+        enabling_effect_ids=["exampleDebuff"],
+        exclusions=[],
+        candidates_by_role={"damage": ["exampleCharacter"]},
+    ),
+}
+
+
+def write_schemas(root: Path) -> None:
+    target_dir = root / "schema"
+    target_dir.mkdir(parents=True)
+    for repository_schema in Path("knowledge/schema").glob("*.schema.json"):
+        target = target_dir / repository_schema.name
+        target.write_text(
+            repository_schema.read_text(encoding="utf-8"), encoding="utf-8"
+        )
 
 
 def test_loads_valid_character_knowledge(tmp_path: Path):
-    write_schema(tmp_path)
+    write_schemas(tmp_path)
     character_dir = tmp_path / "characters"
     character_dir.mkdir()
     (character_dir / "example.json").write_text(
@@ -56,7 +136,7 @@ def test_loads_valid_character_knowledge(tmp_path: Path):
 
 
 def test_rejects_invalid_alliance(tmp_path: Path):
-    write_schema(tmp_path)
+    write_schemas(tmp_path)
     character_dir = tmp_path / "characters"
     character_dir.mkdir()
     invalid = dict(VALID_CHARACTER)
@@ -68,7 +148,7 @@ def test_rejects_invalid_alliance(tmp_path: Path):
 
 
 def test_rejects_duplicate_character_ids(tmp_path: Path):
-    write_schema(tmp_path)
+    write_schemas(tmp_path)
     character_dir = tmp_path / "characters"
     character_dir.mkdir()
     for filename in ("one.json", "two.json"):
@@ -94,11 +174,55 @@ def test_reports_schema_errors():
 def test_repository_knowledge_is_valid():
     records = validate_knowledge_repository(Path("knowledge"))
 
-    assert records == {"characters": {}}
+    assert records == {
+        "characters": {},
+        "abilities": {},
+        "effects": {},
+        "modes": {},
+        "encounters": {},
+        "team_archetypes": {},
+    }
+
+
+def test_loads_every_supported_knowledge_collection(tmp_path: Path):
+    write_schemas(tmp_path)
+    for collection, document in VALID_DOCUMENTS.items():
+        collection_dir = tmp_path / collection
+        collection_dir.mkdir()
+        (collection_dir / "example.json").write_text(
+            json.dumps(document), encoding="utf-8"
+        )
+
+    records = validate_knowledge_repository(tmp_path)
+
+    assert {
+        collection: list(collection_records)
+        for collection, collection_records in records.items()
+    } == {
+        collection: [document["id"]]
+        for collection, document in VALID_DOCUMENTS.items()
+    }
+
+
+def test_shared_metadata_rules_apply_to_new_collections(tmp_path: Path):
+    write_schemas(tmp_path)
+    ability_dir = tmp_path / "abilities"
+    ability_dir.mkdir()
+    invalid = dict(VALID_DOCUMENTS["abilities"])
+    invalid["last_reviewed"] = "not-a-date"
+    (ability_dir / "invalid.json").write_text(json.dumps(invalid), encoding="utf-8")
+
+    with pytest.raises(KnowledgeError, match="last_reviewed"):
+        load_knowledge_collection(tmp_path, "abilities")
+
+
+def test_rejects_unsupported_knowledge_collection(tmp_path: Path):
+    with pytest.raises(KnowledgeError, match="Unsupported knowledge collection"):
+        load_knowledge_collection(tmp_path, "unknown")
 
 
 def test_repository_validation_rejects_unhandled_json(tmp_path: Path):
-    write_schema(tmp_path)
+    write_schemas(tmp_path)
     unsupported_dir = tmp_path / "unhandled"
     unsupported_dir.mkdir()
     (unsupported_dir / "entry.json").write_text("{}", encoding="utf-8")

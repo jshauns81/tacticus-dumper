@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tacticus-dumper.local/schema/mode.schema.json",
+  "title": "Tacticus Game Mode Knowledge",
+  "allOf": [
+    {"$ref": "https://tacticus-dumper.local/schema/common.schema.json#/$defs/knowledge_document"},
+    {
+      "type": "object",
+      "required": ["team_size", "reuse_rule", "scoring_objectives"],
+      "properties": {
+        "team_size": {"type": "integer", "minimum": 1},
+        "reuse_rule": {"type": "string", "minLength": 1},
+        "restrictions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "scoring_objectives": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "resources_consumed": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

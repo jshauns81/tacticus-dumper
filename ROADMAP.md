@@ -27,7 +27,7 @@ Exit condition: a saved player dump can be converted into a stable internal acco
 
 - add machine-readable schemas
 - add version and source metadata
-- define characters, abilities, effects, modes, encounters, and team archetypes
+- define schemas for characters, abilities, effects, modes, encounters, and team archetypes
 - seed a small Guild Raid-focused character set
 - validate every knowledge file in CI (character documents covered; expand with each schema)
 

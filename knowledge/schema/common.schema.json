@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tacticus-dumper.local/schema/common.schema.json",
+  "title": "Tacticus Knowledge Common Definitions",
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["type", "reference"],
+      "properties": {
+        "type": {
+          "enum": [
+            "official_game_data",
+            "official_patch_notes",
+            "observed_player_data",
+            "controlled_test",
+            "community_consensus",
+            "expert_judgment"
+          ]
+        },
+        "reference": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "knowledge_document": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "knowledge_version",
+        "effective_from",
+        "last_reviewed",
+        "id",
+        "name",
+        "sources"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "knowledge_version": {"type": "string", "minLength": 1},
+        "effective_from": {"type": "string", "format": "date"},
+        "last_reviewed": {"type": "string", "format": "date"},
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/source"}
+        }
+      }
+    }
+  }
+}
