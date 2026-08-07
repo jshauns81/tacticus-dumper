@@ -126,8 +126,14 @@ def test_advisor_actions_returns_supported_unranked_actions(client):
     assert response.status_code == 200
     result = response.get_json()
     assert result["coverage"] == {
-        "supported_action_types": ["ability_level", "ascension", "promotion", "unlock"],
-        "pending_action_types": ["rank", "equipment"],
+        "supported_action_types": [
+            "ability_level",
+            "ascension",
+            "promotion",
+            "rank",
+            "unlock",
+        ],
+        "pending_action_types": ["equipment"],
         "unreported_resources": ["coins"],
         "evaluation": "Each action is evaluated independently, not as a combined spend plan.",
         "unlock_knowledge": {

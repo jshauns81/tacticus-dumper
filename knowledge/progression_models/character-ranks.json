@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "characterRanks",
+  "name": "Character upgrade ranks",
+  "action_type": "rank",
+  "required_upgrade_slots": 6,
+  "rank_labels": [
+    "Stone I",
+    "Stone II",
+    "Stone III",
+    "Iron I",
+    "Iron II",
+    "Iron III",
+    "Bronze I",
+    "Bronze II",
+    "Bronze III",
+    "Silver I",
+    "Silver II",
+    "Silver III",
+    "Gold I",
+    "Gold II",
+    "Gold III",
+    "Diamond I",
+    "Diamond II",
+    "Diamond III"
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Unit_Progression",
+      "notes": "Upgrade-rank order through Diamond III and the requirement to apply all six upgrades before ranking up; page last edited June 26, 2026."
+    },
+    {
+      "type": "observed_player_data",
+      "reference": "Sanitized Player API export structure",
+      "notes": "Validated zero-based rank values and upgrade slot indexes 0 through 5 without recording player-specific values."
+    }
+  ]
+}

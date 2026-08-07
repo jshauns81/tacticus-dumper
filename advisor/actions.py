@@ -100,6 +100,27 @@ def _unlock_cost_table(
     return costs, model
 
 
+def _rank_progression_model(
+    progression_models: dict[str, dict[str, Any]],
+) -> tuple[list[str], int, dict[str, Any]]:
+    matching = [
+        model
+        for model in progression_models.values()
+        if model.get("action_type") == "rank"
+    ]
+    if len(matching) != 1:
+        raise ActionModelError("Expected exactly one rank progression model.")
+
+    model = matching[0]
+    labels = model["rank_labels"]
+    required_upgrade_slots = model["required_upgrade_slots"]
+    if len(set(labels)) != len(labels):
+        raise ActionModelError(
+            f"Progression model {model['id']} repeats a rank label."
+        )
+    return labels, required_upgrade_slots, model
+
+
 def _model_metadata(model: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": model["id"],
@@ -120,6 +141,9 @@ def generate_candidate_actions(
         progression_models
     )
     unlock_costs, unlock_cost_model = _unlock_cost_table(progression_models)
+    rank_labels, required_upgrade_slots, rank_progression_model = (
+        _rank_progression_model(progression_models)
+    )
     character_knowledge = character_knowledge or {}
     inventory = normalized.get("inventory") or {}
     badge_inventory = inventory.get("ability_badges") or {}
@@ -133,10 +157,13 @@ def generate_candidate_actions(
         "insufficient_mythic_shards": 0,
         "insufficient_orbs": 0,
         "insufficient_unlock_shards": 0,
+        "incomplete_rank_upgrades": 0,
         "progression_maxed": 0,
+        "rank_maxed": 0,
         "unsupported_unlock_character": 0,
         "unsupported_unit_ability_layout": 0,
         "unsupported_progression_index": 0,
+        "unsupported_rank": 0,
         "unsupported_target_level": 0,
     }
 
@@ -209,6 +236,45 @@ def generate_candidate_actions(
                     "availability": "possible_if_unreported_coins_sufficient",
                 }
             )
+
+        current_rank = unit.get("rank")
+        if not isinstance(current_rank, int) or not 0 <= current_rank < len(rank_labels):
+            excluded["unsupported_rank"] += 1
+        elif current_rank == len(rank_labels) - 1:
+            excluded["rank_maxed"] += 1
+        else:
+            filled_upgrade_slots = {
+                slot
+                for slot in unit.get("equipped_upgrade_slots") or []
+                if isinstance(slot, int) and 0 <= slot < required_upgrade_slots
+            }
+            if len(filled_upgrade_slots) != required_upgrade_slots:
+                excluded["incomplete_rank_upgrades"] += 1
+            else:
+                target_rank = current_rank + 1
+                actions.append(
+                    {
+                        "id": f"rank:{unit['id']}:{target_rank}",
+                        "type": "rank",
+                        "character": {"id": unit["id"], "name": unit["name"]},
+                        "rank": {
+                            "current": current_rank,
+                            "current_label": rank_labels[current_rank],
+                            "target": target_rank,
+                            "target_label": rank_labels[target_rank],
+                        },
+                        "prerequisites": [
+                            {
+                                "resource": "applied_rank_upgrades",
+                                "required": required_upgrade_slots,
+                                "available": len(filled_upgrade_slots),
+                                "sufficient": True,
+                            }
+                        ],
+                        "costs": [],
+                        "availability": "ready",
+                    }
+                )
 
         current_index = unit["progression_index"]
         step = progression_steps.get(current_index)
@@ -342,10 +408,10 @@ def generate_candidate_actions(
                 "ability_level",
                 "ascension",
                 "promotion",
+                "rank",
                 "unlock",
             ],
             "pending_action_types": [
-                "rank",
                 "equipment",
             ],
             "unreported_resources": ["coins"],
@@ -361,6 +427,7 @@ def generate_candidate_actions(
             "ability_level": _model_metadata(ability_cost_model),
             "unit_progression": _model_metadata(unit_progression_model),
             "unlock": _model_metadata(unlock_cost_model),
+            "rank": _model_metadata(rank_progression_model),
         },
         "scope": "Unranked factual candidate actions; strategic scoring is not enabled.",
     }

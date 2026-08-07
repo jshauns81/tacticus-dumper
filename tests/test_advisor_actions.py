@@ -65,6 +65,15 @@ def progression_models():
             ],
             "sources": [{"type": "controlled_test", "reference": "fixture"}],
         },
+        "testRanks": {
+            "id": "testRanks",
+            "knowledge_version": "test",
+            "last_reviewed": "2026-08-06",
+            "action_type": "rank",
+            "required_upgrade_slots": 6,
+            "rank_labels": ["Stone I", "Stone II", "Stone III", "Iron I"],
+            "sources": [{"type": "controlled_test", "reference": "fixture"}],
+        },
     }
 
 
@@ -95,6 +104,7 @@ def normalized_player():
                 "name": "Zeta",
                 "grand_alliance": "Xenos",
                 "progression_index": 3,
+                "rank": 1,
                 "xp_level": 8,
                 "shards": 14,
                 "mythic_shards": 0,
@@ -102,12 +112,14 @@ def normalized_player():
                     {"id": "zetaActive", "level": 7},
                     {"id": "zetaPassive", "level": 7},
                 ],
+                "equipped_upgrade_slots": [0, 1, 2, 3, 4],
             },
             {
                 "id": "alpha",
                 "name": "Alpha",
                 "grand_alliance": "Xenos",
                 "progression_index": 2,
+                "rank": 2,
                 "xp_level": 10,
                 "shards": 15,
                 "mythic_shards": 0,
@@ -115,12 +127,14 @@ def normalized_player():
                     {"id": "alphaActive", "level": 8},
                     {"id": "alphaPassive", "level": 8},
                 ],
+                "equipped_upgrade_slots": [0, 1, 2, 3, 4, 5],
             },
             {
                 "id": "blocked",
                 "name": "Blocked",
                 "grand_alliance": "Imperial",
                 "progression_index": 19,
+                "rank": 3,
                 "xp_level": 10,
                 "shards": 999,
                 "mythic_shards": 0,
@@ -128,6 +142,7 @@ def normalized_player():
                     {"id": "atCap", "level": 10},
                     {"id": "needsBadge", "level": 8},
                 ],
+                "equipped_upgrade_slots": [],
             },
         ],
     }
@@ -144,11 +159,12 @@ def test_generates_deterministic_actions_and_filters_known_blockers():
         "ability_level:zeta:zetaActive:8",
         "ability_level:zeta:zetaPassive:8",
         "ascension:alpha:3",
+        "rank:alpha:3",
         "unlock:locked:6",
     ]
     assert result["counts"] == {
-        "returned": 6,
-        "excluded": 6,
+        "returned": 7,
+        "excluded": 8,
         "excluded_by_reason": {
             "ability_at_character_level": 1,
             "insufficient_ability_badges": 1,
@@ -156,10 +172,13 @@ def test_generates_deterministic_actions_and_filters_known_blockers():
             "insufficient_mythic_shards": 0,
             "insufficient_orbs": 0,
             "insufficient_unlock_shards": 1,
+            "incomplete_rank_upgrades": 1,
             "progression_maxed": 1,
+            "rank_maxed": 1,
             "unsupported_unlock_character": 1,
             "unsupported_unit_ability_layout": 0,
             "unsupported_progression_index": 0,
+            "unsupported_rank": 0,
             "unsupported_target_level": 0,
         },
     }
@@ -233,6 +252,37 @@ def test_generates_resource_ready_ascension_action():
         ],
         "availability": "ready",
     }
+
+
+def test_generates_rank_action_only_when_all_six_upgrades_are_applied():
+    result = generate_candidate_actions(
+        normalized_player(), progression_models(), character_knowledge()
+    )
+    ranks = [action for action in result["actions"] if action["type"] == "rank"]
+
+    assert ranks == [
+        {
+            "id": "rank:alpha:3",
+            "type": "rank",
+            "character": {"id": "alpha", "name": "Alpha"},
+            "rank": {
+                "current": 2,
+                "current_label": "Stone III",
+                "target": 3,
+                "target_label": "Iron I",
+            },
+            "prerequisites": [
+                {
+                    "resource": "applied_rank_upgrades",
+                    "required": 6,
+                    "available": 6,
+                    "sufficient": True,
+                }
+            ],
+            "costs": [],
+            "availability": "ready",
+        }
+    ]
 
 
 def test_generates_unlock_only_for_known_character_with_enough_shards():

@@ -8,7 +8,7 @@
       "type": "object",
       "required": ["action_type"],
       "properties": {
-        "action_type": {"enum": ["ability_level", "unit_progression", "unlock"]},
+        "action_type": {"enum": ["ability_level", "unit_progression", "unlock", "rank"]},
         "level_bands": {
           "type": "array",
           "minItems": 1,
@@ -79,6 +79,16 @@
             },
             "additionalProperties": false
           }
+        },
+        "rank_labels": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "required_upgrade_slots": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "oneOf": [
@@ -96,6 +106,17 @@
           "properties": {"action_type": {"const": "unlock"}},
           "required": ["unlock_costs"],
           "not": {"anyOf": [{"required": ["level_bands"]}, {"required": ["steps"]}]}
+        },
+        {
+          "properties": {"action_type": {"const": "rank"}},
+          "required": ["rank_labels", "required_upgrade_slots"],
+          "not": {
+            "anyOf": [
+              {"required": ["level_bands"]},
+              {"required": ["steps"]},
+              {"required": ["unlock_costs"]}
+            ]
+          }
         }
       ]
     }

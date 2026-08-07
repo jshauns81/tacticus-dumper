@@ -211,6 +211,7 @@ def test_repository_knowledge_is_valid():
         "team_archetypes": ["doomMultiHitCore"],
         "progression_models": [
             "characterAbilityLevelCosts",
+            "characterRanks",
             "characterUnlockCosts",
             "unitPromotionAscensionCosts",
         ],
