@@ -19,6 +19,7 @@ KNOWLEDGE_COLLECTIONS = {
     "encounters": ("encounter.schema.json", "encounter"),
     "team_archetypes": ("team-archetype.schema.json", "team archetype"),
     "progression_models": ("progression-model.schema.json", "progression model"),
+    "scoring_models": ("scoring-model.schema.json", "scoring model"),
 }
 
 
@@ -187,6 +188,24 @@ def validate_knowledge_references(
                 values=ability.get(field, []),
                 target_collection="effects",
             )
+
+    for model_id, model in records["scoring_models"].items():
+        _require_references(
+            records,
+            source_collection="scoring_models",
+            source_id=model_id,
+            field="mode_id",
+            values=[model["mode_id"]],
+            target_collection="modes",
+        )
+        _require_references(
+            records,
+            source_collection="scoring_models",
+            source_id=model_id,
+            field="team_archetype_id",
+            values=[model["team_archetype_id"]],
+            target_collection="team_archetypes",
+        )
 
     for effect_id, effect in records["effects"].items():
         _require_references(

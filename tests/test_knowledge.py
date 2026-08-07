@@ -122,6 +122,24 @@ VALID_DOCUMENTS = {
             }
         ],
     ),
+    "scoring_models": knowledge_document(
+        "exampleScoring",
+        "Example Scoring",
+        mode_id="exampleMode",
+        team_archetype_id="exampleTeam",
+        max_projects=3,
+        max_projects_per_character=1,
+        weights={
+            "required_role": 30,
+            "optional_role": 10,
+            "role_aligned_ability": 35,
+            "general_progression": 20,
+            "unlock_missing_required_role": 25,
+            "ready": 10,
+            "conditional_resources": 5,
+            "complete_required_role_core": 15,
+        },
+    ),
 }
 
 
@@ -215,6 +233,7 @@ def test_repository_knowledge_is_valid():
             "characterUnlockCosts",
             "unitPromotionAscensionCosts",
         ],
+        "scoring_models": ["guildRaidCoreV1"],
     }
 
 

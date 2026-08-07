@@ -34,6 +34,11 @@
           "items": {"type": "string", "minLength": 1},
           "uniqueItems": true
         },
+        "supports_roles": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
         "breakpoint_notes": {
           "type": "array",
           "items": {"type": "string", "minLength": 1}

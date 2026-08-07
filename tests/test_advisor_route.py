@@ -184,3 +184,45 @@ def test_advisor_actions_returns_422_for_malformed_json(client):
     assert response.get_json()["error"] == (
         "Latest player dump is invalid JSON: player_20260805_120000.json"
     )
+
+
+def test_advisor_recommendations_returns_explainable_guild_raid_project(client):
+    test_client, dumps_dir = client
+    payload = sample_payload()
+    payload["player"]["units"][0].update(
+        {
+            "id": "eldarFarseer",
+            "name": "Eldryon",
+            "abilities": [
+                {"id": "Doom", "level": 11},
+                {"id": "Executioner", "level": 11},
+            ],
+        }
+    )
+    (dumps_dir / "player_20260805_120000.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    response = test_client.get("/api/advisor/recommendations")
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["status"] == "projects_ready"
+    assert result["mode"] == {"id": "guildRaid", "name": "Guild Raid"}
+    assert result["counts"]["returned_projects"] == 1
+    project = result["projects"][0]
+    assert project["action"]["id"] == "ability_level:eldarFarseer:Doom:12"
+    assert project["rank"] == 1
+    assert project["score"] == 70
+    assert project["stopping_point"] == (
+        "Raise only this ability to level 12, refresh the dump, and rescore."
+    )
+
+
+def test_advisor_recommendations_returns_404_when_no_dump_exists(client):
+    test_client, _ = client
+
+    response = test_client.get("/api/advisor/recommendations")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "No player_*.json dumps were found."

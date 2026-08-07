@@ -14,6 +14,7 @@
   "produces_effects": [],
   "consumes_effects": [],
   "scaling_dimensions": ["particle_damage_per_added_hit", "conditional_bonus_damage"],
+  "supports_roles": ["multi_hit_normal_attacker"],
   "breakpoint_notes": [
     "Three additional normal-attack hits increase the number of per-hit amplification triggers."
   ],

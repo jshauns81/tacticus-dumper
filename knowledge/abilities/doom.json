@@ -15,6 +15,7 @@
   "produces_effects": ["doomNormalAttackAmplification"],
   "consumes_effects": [],
   "scaling_dimensions": ["bonus_damage_per_hit"],
+  "supports_roles": ["damage_amplifier"],
   "breakpoint_notes": [
     "Value scales with the number of normal-attack hits that can be delivered while positioning is maintained."
   ],

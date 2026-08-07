@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tacticus-dumper.local/schema/scoring-model.schema.json",
+  "title": "Advisor Scoring Model",
+  "allOf": [
+    {"$ref": "https://tacticus-dumper.local/schema/common.schema.json#/$defs/knowledge_document"},
+    {
+      "type": "object",
+      "required": [
+        "mode_id",
+        "team_archetype_id",
+        "max_projects",
+        "max_projects_per_character",
+        "weights"
+      ],
+      "properties": {
+        "mode_id": {"type": "string", "minLength": 1},
+        "team_archetype_id": {"type": "string", "minLength": 1},
+        "max_projects": {"type": "integer", "minimum": 1, "maximum": 3},
+        "max_projects_per_character": {"type": "integer", "minimum": 1},
+        "weights": {
+          "type": "object",
+          "required": [
+            "required_role",
+            "optional_role",
+            "role_aligned_ability",
+            "general_progression",
+            "unlock_missing_required_role",
+            "ready",
+            "conditional_resources",
+            "complete_required_role_core"
+          ],
+          "properties": {
+            "required_role": {"type": "integer", "minimum": 0},
+            "optional_role": {"type": "integer", "minimum": 0},
+            "role_aligned_ability": {"type": "integer", "minimum": 0},
+            "general_progression": {"type": "integer", "minimum": 0},
+            "unlock_missing_required_role": {"type": "integer", "minimum": 0},
+            "ready": {"type": "integer", "minimum": 0},
+            "conditional_resources": {"type": "integer", "minimum": 0},
+            "complete_required_role_core": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

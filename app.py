@@ -28,6 +28,7 @@ from flask import (
 from advisor.actions import ActionModelError, generate_candidate_actions
 from advisor.knowledge import KnowledgeError, validate_knowledge_repository
 from advisor.parser import load_latest_player_dump, normalize_player, summarize_roster
+from advisor.scoring import ActionScoringError, score_guild_raid_actions
 
 # ── paths ────────────────────────────────────────────────────────────────
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
@@ -322,6 +323,36 @@ def advisor_actions():
         )
     except (ActionModelError, KnowledgeError) as exc:
         app.logger.exception("Advisor action knowledge could not be loaded")
+        return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
+
+    return jsonify(result)
+
+
+@app.route("/api/advisor/recommendations")
+@requires_auth
+def advisor_recommendations():
+    try:
+        source_path, payload = load_latest_player_dump(DUMPS_DIR)
+    except FileNotFoundError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 422
+
+    try:
+        normalized = normalize_player(payload, source_path=source_path)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": f"Invalid player structure: {exc}"}), 422
+
+    try:
+        knowledge = validate_knowledge_repository(KNOWLEDGE_DIR)
+        candidates = generate_candidate_actions(
+            normalized,
+            knowledge["progression_models"],
+            knowledge["characters"],
+        )
+        result = score_guild_raid_actions(normalized, candidates, knowledge)
+    except (ActionModelError, ActionScoringError, KnowledgeError) as exc:
+        app.logger.exception("Advisor recommendation knowledge could not be loaded")
         return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
 
     return jsonify(result)

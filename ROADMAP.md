@@ -53,6 +53,13 @@ Exit condition: the engine can describe what the account could do next without y
 
 ## Milestone 4: Guild Raid scoring
 
+Status: in progress. The first validated scoring policy covers the Doom multi-hit core
+and returns at most one project per known character and three projects total. Scores
+are ordinal comparisons, not damage predictions. Every project includes visible score
+components, evidence, assumptions, a stopping point, and opportunity costs through
+`/api/advisor/recommendations`. Coverage expands only as sourced character and
+ability-role knowledge is added.
+
 - define Guild Raid priorities and team roles
 - score candidate actions with visible components
 - compare alternatives
