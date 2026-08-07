@@ -26,6 +26,7 @@ from flask import (
 )
 
 from advisor.actions import ActionModelError, generate_candidate_actions
+from advisor.history import compare_player_snapshots
 from advisor.knowledge import KnowledgeError, validate_knowledge_repository
 from advisor.parser import (
     PlayerDumpSelectionError,
@@ -295,6 +296,38 @@ def _load_requested_advisor_dump():
     return load_latest_player_dump(DUMPS_DIR)
 
 
+def _load_advisor_history_pair():
+    before_name = request.args.get("before", "")
+    after_name = request.args.get("after", "")
+    if bool(before_name) != bool(after_name):
+        raise PlayerDumpSelectionError(
+            "History selection requires both before and after dump filenames."
+        )
+    if before_name and before_name == after_name:
+        raise PlayerDumpSelectionError(
+            "History selection requires two different player dumps."
+        )
+    if before_name:
+        return (
+            load_player_dump(DUMPS_DIR, before_name),
+            load_player_dump(DUMPS_DIR, after_name),
+        )
+
+    candidates = sorted(
+        DUMPS_DIR.glob("player_*.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if len(candidates) < 2:
+        raise FileNotFoundError(
+            "At least two player_*.json dumps are required for history."
+        )
+    return (
+        load_player_dump(DUMPS_DIR, candidates[1].name),
+        load_player_dump(DUMPS_DIR, candidates[0].name),
+    )
+
+
 @app.route("/api/advisor/summary")
 @requires_auth
 def advisor_summary():
@@ -373,6 +406,38 @@ def advisor_recommendations():
         result = score_guild_raid_actions(normalized, candidates, knowledge)
     except (ActionModelError, ActionScoringError, KnowledgeError) as exc:
         app.logger.exception("Advisor recommendation knowledge could not be loaded")
+        return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
+
+    return jsonify(result)
+
+
+@app.route("/api/advisor/history")
+@requires_auth
+def advisor_history():
+    try:
+        (before_path, before_payload), (after_path, after_payload) = (
+            _load_advisor_history_pair()
+        )
+    except PlayerDumpSelectionError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except FileNotFoundError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 422
+
+    try:
+        before = normalize_player(before_payload, source_path=before_path)
+        after = normalize_player(after_payload, source_path=after_path)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": f"Invalid player structure: {exc}"}), 422
+
+    try:
+        knowledge = validate_knowledge_repository(KNOWLEDGE_DIR)
+        result = compare_player_snapshots(
+            before, after, knowledge["progression_models"]
+        )
+    except KnowledgeError as exc:
+        app.logger.exception("Advisor history knowledge could not be loaded")
         return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
 
     return jsonify(result)

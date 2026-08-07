@@ -269,3 +269,52 @@ def test_advisor_recommendations_returns_404_when_no_dump_exists(client):
 
     assert response.status_code == 404
     assert response.get_json()["error"] == "No player_*.json dumps were found."
+
+
+def test_advisor_history_compares_the_two_latest_player_dumps(client):
+    test_client, dumps_dir = client
+    before_payload = sample_payload()
+    before_payload["player"]["details"]["powerLevel"] = 10
+    after_payload = sample_payload()
+    after_payload["player"]["details"]["powerLevel"] = 25
+    before = dumps_dir / "player_20260805_110000.json"
+    after = dumps_dir / "player_20260805_120000.json"
+    before.write_text(json.dumps(before_payload), encoding="utf-8")
+    after.write_text(json.dumps(after_payload), encoding="utf-8")
+    os.utime(before, (1_700_000_000, 1_700_000_000))
+    os.utime(after, (1_700_000_060, 1_700_000_060))
+
+    response = test_client.get("/api/advisor/history")
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["before"]["source"]["filename"] == before.name
+    assert result["after"]["source"]["filename"] == after.name
+    assert result["summary"]["power_delta"] == 15
+
+
+def test_advisor_history_requires_two_dumps(client):
+    test_client, dumps_dir = client
+    (dumps_dir / "player_20260805_120000.json").write_text(
+        json.dumps(sample_payload()), encoding="utf-8"
+    )
+
+    response = test_client.get("/api/advisor/history")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == (
+        "At least two player_*.json dumps are required for history."
+    )
+
+
+def test_advisor_history_requires_complete_explicit_pair(client):
+    test_client, _ = client
+
+    response = test_client.get(
+        "/api/advisor/history?before=player_20260805_110000.json"
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == (
+        "History selection requires both before and after dump filenames."
+    )
