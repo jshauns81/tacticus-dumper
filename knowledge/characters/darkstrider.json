@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "tauDarkstrider",
+  "name": "Darkstrider",
+  "faction_id": "Tau Empire",
+  "alliance_id": "Xenos",
+  "base_rarity": "Rare",
+  "abilities": ["FightingRetreat", "StructuralAnalyser"],
+  "traits": ["Infiltrate", "Ranged Specialist", "Suppressive Fire"],
+  "roles": ["markerlight_support", "ranged_damage_amplifier"],
+  "mode_evaluations": [],
+  "breakpoints": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Darkstrider",
+      "notes": "Base rarity, faction, traits, attacks, and current ability mechanics after the December 2025 changes."
+    },
+    {
+      "type": "observed_player_data",
+      "reference": "Sanitized Tacticus Player API export",
+      "notes": "Stable API character and ability identifiers only; no player values retained."
+    }
+  ]
+}

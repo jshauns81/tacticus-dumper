@@ -216,12 +216,21 @@ def test_repository_knowledge_is_valid():
     records = validate_knowledge_repository(Path("knowledge"))
 
     assert {collection: sorted(entries) for collection, entries in records.items()} == {
-        "characters": ["eldarFarseer", "tauCrisis"],
+        "characters": [
+            "eldarAutarch",
+            "eldarFarseer",
+            "tauCrisis",
+            "tauDarkstrider",
+        ],
         "abilities": [
             "CyclicIonBlaster",
             "Doom",
             "EarlyWarningOverride",
             "Executioner",
+            "FightingRetreat",
+            "Loki_SwoopingHawk",
+            "PathOfCommand",
+            "StructuralAnalyser",
         ],
         "effects": ["doomNormalAttackAmplification"],
         "modes": ["guildRaid"],

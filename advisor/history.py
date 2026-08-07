@@ -8,6 +8,7 @@ from typing import Any
 def _project_summary(project: dict[str, Any]) -> dict[str, Any]:
     return {
         "action_id": project["action"]["id"],
+        "title": project.get("title"),
         "type": project["action"]["type"],
         "character": project["action"]["character"],
         "score": project["score"],
@@ -62,6 +63,7 @@ def compare_recommendation_queues(
         retained.append(
             {
                 "action_id": action_id,
+                "title": new.get("title"),
                 "type": new["action"]["type"],
                 "character": new["action"]["character"],
                 "before_score": old["score"],

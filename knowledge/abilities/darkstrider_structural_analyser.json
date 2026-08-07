@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "StructuralAnalyser",
+  "name": "Structural Analyser",
+  "ability_type": "passive",
+  "targets": ["ranged_targets_and_nearby_friendly_units"],
+  "mechanics": [
+    "Darkstrider's ranged attacks apply Markerlight for one round.",
+    "Adjacent friendly units gain ranged damage against Markerlight targets.",
+    "Friendly Tau Empire units within two hexes also gain the ranged damage bonus."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["friendly_ranged_damage"],
+  "supports_roles": ["markerlight_support"],
+  "breakpoint_notes": [
+    "Value depends on Markerlight uptime and keeping ranged attackers in the supported area."
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Darkstrider",
+      "notes": "Current passive ability text after the July and December 2025 changes."
+    }
+  ]
+}

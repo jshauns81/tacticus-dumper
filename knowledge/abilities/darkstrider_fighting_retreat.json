@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "FightingRetreat",
+  "name": "Fighting Retreat",
+  "ability_type": "active",
+  "targets": ["adjacent_enemies_and_allies"],
+  "mechanics": [
+    "Applies Markerlight and temporary hit and damage reduction to adjacent enemies.",
+    "Lets nearby Ranged Specialist allies retain the trait's benefit in melee range.",
+    "May let Darkstrider continue moving and acting when used adjacent to an enemy."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["enemy_damage_reduction"],
+  "breakpoint_notes": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Darkstrider",
+      "notes": "Current active ability text; its level scaling is defensive, so it is intentionally not linked to the markerlight_support scoring role."
+    }
+  ]
+}

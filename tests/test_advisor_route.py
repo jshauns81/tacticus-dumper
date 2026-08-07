@@ -180,7 +180,7 @@ def test_advisor_actions_returns_supported_unranked_actions(client):
         "unreported_resources": ["coins"],
         "evaluation": "Each action is evaluated independently, not as a combined spend plan.",
         "unlock_knowledge": {
-            "known_characters": 2,
+            "known_characters": 4,
             "unmapped_unowned_shard_records": 0,
         },
     }

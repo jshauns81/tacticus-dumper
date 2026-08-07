@@ -83,6 +83,10 @@ def test_scores_documented_role_actions_and_limits_one_project_per_character():
     ]
     assert result["status"] == "projects_ready"
     assert [project["score"] for project in result["projects"]] == [85, 85]
+    assert [project["title"] for project in result["projects"]] == [
+        "Raise Doom to level 20",
+        "Raise Cyclic Ion Blaster to level 20",
+    ]
     assert [component["id"] for component in result["projects"][0]["components"]] == [
         "required_role",
         "role_aligned_ability",
@@ -180,3 +184,41 @@ def test_rejects_ambiguous_scoring_policy():
         score_guild_raid_actions(
             {"units": []}, candidate_result([]), records
         )
+
+
+def test_scores_sourced_optional_support_passives_but_not_unrelated_actives():
+    normalized = {
+        "units": [
+            {"id": "eldarFarseer"},
+            {"id": "tauCrisis"},
+            {"id": "eldarAutarch"},
+            {"id": "tauDarkstrider"},
+        ]
+    }
+    actions = [
+        ability_action("eldarAutarch", "Aethana", "PathOfCommand", target_level=9),
+        ability_action("eldarAutarch", "Aethana", "Loki_SwoopingHawk", target_level=11),
+        ability_action(
+            "tauDarkstrider", "Darkstrider", "StructuralAnalyser", target_level=9
+        ),
+        ability_action(
+            "tauDarkstrider", "Darkstrider", "FightingRetreat", target_level=9
+        ),
+    ]
+
+    result = score_guild_raid_actions(
+        normalized, candidate_result(actions), knowledge()
+    )
+
+    assert [project["action"]["id"] for project in result["projects"]] == [
+        "ability_level:eldarAutarch:PathOfCommand:9",
+        "ability_level:tauDarkstrider:StructuralAnalyser:9",
+    ]
+    assert [project["score"] for project in result["projects"]] == [65, 65]
+    assert [project["title"] for project in result["projects"]] == [
+        "Raise Path of Command to level 9",
+        "Raise Structural Analyser to level 9",
+    ]
+    assert result["counts"]["excluded_by_reason"] == {
+        "undocumented_ability_role": 2
+    }

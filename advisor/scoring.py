@@ -103,6 +103,20 @@ def _stopping_point(action: dict[str, Any]) -> str:
     return f"Advance only to {target}, refresh the dump, and rescore."
 
 
+def _action_title(
+    action: dict[str, Any], ability: dict[str, Any] | None = None
+) -> str:
+    if action["type"] == "ability_level":
+        target = action["ability"]["target_level"]
+        return f"Raise {ability['name']} to level {target}"
+    if action["type"] == "rank":
+        return f"Rank up to {action['rank']['target_label']}"
+    if action["type"] == "unlock":
+        return f"Unlock {action['character']['name']}"
+    verb = "Ascend" if action["type"] == "ascension" else "Promote"
+    return f"{verb} to {action['progression']['target_label']}"
+
+
 def score_guild_raid_actions(
     normalized: dict[str, Any],
     candidate_result: dict[str, Any],
@@ -138,8 +152,13 @@ def score_guild_raid_actions(
             continue
 
         character_roles = set(character.get("roles") or [])
-        matched_required = sorted(character_roles & required_roles)
-        matched_optional = sorted(character_roles & optional_roles)
+        archetype_roles = {
+            role
+            for role, character_ids in archetype.get("candidates_by_role", {}).items()
+            if character_id in character_ids
+        }
+        matched_required = sorted(character_roles & required_roles & archetype_roles)
+        matched_optional = sorted(character_roles & optional_roles & archetype_roles)
         if not matched_required and not matched_optional:
             excluded["no_archetype_role"] += 1
             continue
@@ -169,6 +188,7 @@ def score_guild_raid_actions(
             ("team_archetypes", archetype["id"]),
         ]
         action_type = action["type"]
+        ability = None
         if action_type == "ability_level":
             ability_id = action["ability"]["id"]
             ability = knowledge["abilities"].get(ability_id)
@@ -256,6 +276,7 @@ def score_guild_raid_actions(
         scored.append(
             {
                 "action": action,
+                "title": _action_title(action, ability),
                 "score": score,
                 "components": components,
                 "why": " ".join(component["reason"] for component in components),

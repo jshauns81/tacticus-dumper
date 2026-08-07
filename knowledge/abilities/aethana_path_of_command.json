@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "PathOfCommand",
+  "name": "Path of Command",
+  "ability_type": "passive",
+  "targets": ["friendly_units_within_two_hexes"],
+  "mechanics": [
+    "Adds damage to friendly units within two hexes.",
+    "Increases the critical chance of affected friendly units that can crit.",
+    "Adds a larger damage bonus to affected Aeldari units."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["friendly_damage", "critical_chance", "aeldari_damage"],
+  "supports_roles": ["critical_damage_support"],
+  "breakpoint_notes": [
+    "Value depends on keeping damage dealers within the two-hex aura."
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Aethana",
+      "notes": "Current passive ability text and scaling dimensions."
+    }
+  ]
+}

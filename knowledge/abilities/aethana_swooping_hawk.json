@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "Loki_SwoopingHawk",
+  "name": "Swooping Hawk",
+  "ability_type": "active",
+  "targets": ["melee_target_and_units_behind_target"],
+  "mechanics": [
+    "Deals a descending wave of Piercing damage through up to three targets.",
+    "Repositions Aethana behind the last target hit when a valid hex is available.",
+    "The ability cannot crit and ignores attacker bonuses and modifiers."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["piercing_damage"],
+  "breakpoint_notes": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Aethana",
+      "notes": "Current active ability text; intentionally not linked to a seeded Guild Raid role."
+    }
+  ]
+}

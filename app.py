@@ -1031,7 +1031,7 @@ function renderAdvisor(data) {
           <span class="advisor-rank">Project ${project.rank} · ${escapeHtml(action.character.name)}</span>
           <span class="advisor-score">Score ${project.score}</span>
         </div>
-        <h3>${escapeHtml(advisorActionLabel(action))}</h3>
+        <h3>${escapeHtml(project.title || advisorActionLabel(action))}</h3>
         <p class="why">${escapeHtml(project.why)}</p>
         <div class="advisor-stop"><strong>Stop:</strong> ${escapeHtml(project.stopping_point)}</div>
         <details>
@@ -1104,13 +1104,13 @@ function renderRecommendationChanges(change) {
     return `<div class="history-queue"><div class="history-queue-title">Advisor queue</div><div class="history-event"><span class="event-icon">✓</span><span>${escapeHtml(change.message)}</span></div></div>`;
   }
   const added = (change.added || []).map(project =>
-    `<div class="history-event"><span class="event-icon">+</span><span>Added · ${escapeHtml(advisorActionLabel(project.action))}</span></div>`
+    `<div class="history-event"><span class="event-icon">+</span><span>Added · ${escapeHtml(project.title || advisorActionLabel(project.action))}</span></div>`
   ).join('');
   const removed = (change.removed || []).map(project =>
-    `<div class="history-event"><span class="event-icon">−</span><span>Removed · ${escapeHtml(advisorActionLabel(project.action))}</span></div>`
+    `<div class="history-event"><span class="event-icon">−</span><span>Removed · ${escapeHtml(project.title || advisorActionLabel(project.action))}</span></div>`
   ).join('');
   const retained = (change.retained || []).filter(project => project.score_delta).map(project =>
-    `<div class="history-event"><span class="event-icon">↕</span><span>${escapeHtml(advisorActionLabel(project.action))} · score ${escapeHtml(signedNumber(project.score_delta))}</span></div>`
+    `<div class="history-event"><span class="event-icon">↕</span><span>${escapeHtml(project.title || advisorActionLabel(project.action))} · score ${escapeHtml(signedNumber(project.score_delta))}</span></div>`
   ).join('');
   return `<div class="history-queue"><div class="history-queue-title">Advisor queue</div><div class="history-events">${added}${removed}${retained}</div><div class="advisor-notes">${escapeHtml(change.assumption)}</div></div>`;
 }

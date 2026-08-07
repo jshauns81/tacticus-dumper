@@ -1,13 +1,17 @@
 {
   "schema_version": 1,
-  "knowledge_version": "2026.08.05",
-  "effective_from": "2026-08-05",
-  "last_reviewed": "2026-08-05",
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
   "id": "doomMultiHitCore",
   "name": "Doom Multi-Hit Core",
   "mode_ids": ["guildRaid"],
   "required_roles": ["damage_amplifier", "multi_hit_normal_attacker"],
-  "optional_roles": ["markerlight_support", "sustain_or_positioning"],
+  "optional_roles": [
+    "critical_damage_support",
+    "markerlight_support",
+    "sustain_or_positioning"
+  ],
   "enabling_effect_ids": ["doomNormalAttackAmplification"],
   "exclusions": [
     "Do not use Eldryon where the encounter disallows Aeldari characters.",
@@ -17,7 +21,9 @@
   ],
   "candidates_by_role": {
     "damage_amplifier": ["eldarFarseer"],
-    "multi_hit_normal_attacker": ["tauCrisis"]
+    "multi_hit_normal_attacker": ["tauCrisis"],
+    "critical_damage_support": ["eldarAutarch"],
+    "markerlight_support": ["tauDarkstrider"]
   },
   "sources": [
     {
@@ -34,6 +40,16 @@
       "type": "community_consensus",
       "reference": "https://tacticus.wiki.gg/wiki/Re%27vas",
       "notes": "Re'vas multi-hit normal-attack mechanics."
+    },
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Aethana",
+      "notes": "Path of Command's damage and critical-chance support mechanics."
+    },
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Darkstrider",
+      "notes": "Structural Analyser's Markerlight and ranged-damage support mechanics."
     }
   ]
 }

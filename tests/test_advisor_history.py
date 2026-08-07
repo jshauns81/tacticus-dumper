@@ -183,7 +183,7 @@ def recommendation_project(action_id, character_id, score):
         "character": {"id": character_id, "name": character_id.title()},
         "ability": {"id": "Doom", "current_level": 19, "target_level": 20},
     }
-    return {"action": action, "score": score}
+    return {"action": action, "score": score, "title": "Raise Doom to level 20"}
 
 
 def test_compares_added_removed_and_retained_advisor_projects():
@@ -220,6 +220,7 @@ def test_compares_added_removed_and_retained_advisor_projects():
     assert result["retained"] == [
         {
             "action_id": "action:a",
+            "title": "Raise Doom to level 20",
             "type": "ability_level",
             "character": {"id": "alpha", "name": "Alpha"},
             "before_score": 80,
