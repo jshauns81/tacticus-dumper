@@ -74,8 +74,10 @@ Status: in progress. The main page now loads the latest Guild Raid recommendatio
 shows data freshness, renders up to three projects, and provides a compact Why view
 with score components, assumptions, stopping points, and opportunity costs. The empty
 state explains when no supported project is ready and clarifies that Advisor uses the
-Player dump without officer-level Guild Raid API access. Older-dump selection remains
-pending.
+Player dump without officer-level Guild Raid API access. Users can select any retained
+Player dump from the Advisor card. Exact game-version display remains unavailable
+because the Player export does not include a game-version field; knowledge and review
+versions remain visible instead.
 
 - add an Advisor card and summary view
 - show build queue and score breakdowns

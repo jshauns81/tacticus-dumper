@@ -115,6 +115,49 @@ def test_advisor_summary_returns_422_for_invalid_player_structure(client):
     }
 
 
+def test_advisor_summary_can_use_an_older_selected_player_dump(client):
+    test_client, dumps_dir = client
+    older_payload = sample_payload()
+    older_payload["player"]["details"]["powerLevel"] = 10
+    newer_payload = sample_payload()
+    newer_payload["player"]["details"]["powerLevel"] = 99
+    older = dumps_dir / "player_20260801_000000.json"
+    newer = dumps_dir / "player_20260805_120000.json"
+    older.write_text(json.dumps(older_payload), encoding="utf-8")
+    newer.write_text(json.dumps(newer_payload), encoding="utf-8")
+
+    response = test_client.get(f"/api/advisor/summary?dump={older.name}")
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["source"]["filename"] == older.name
+    assert result["player"]["power_level"] == 10
+
+
+def test_advisor_rejects_unsafe_selected_dump_name(client):
+    test_client, _ = client
+
+    response = test_client.get("/api/advisor/recommendations?dump=../player_secret.json")
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == (
+        "Selected dump filename must match player_*.json."
+    )
+
+
+def test_advisor_returns_404_for_missing_selected_dump(client):
+    test_client, _ = client
+
+    response = test_client.get(
+        "/api/advisor/actions?dump=player_20260101_000000.json"
+    )
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == (
+        "Player dump was not found: player_20260101_000000.json"
+    )
+
+
 def test_advisor_actions_returns_supported_unranked_actions(client):
     test_client, dumps_dir = client
     payload = sample_payload()

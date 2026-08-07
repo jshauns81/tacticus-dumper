@@ -73,8 +73,10 @@ def test_advisor_card_is_available_without_optional_guild_endpoints(client):
     html = test_client.get("/").get_data(as_text=True)
 
     assert 'id="advisor-card"' in html
+    assert 'id="advisor-dump"' in html
     assert "no officer access required" in html
     assert "/api/advisor/recommendations" in html
+    assert "encodeURIComponent(selectedDump)" in html
     assert "No ready project right now" in html
     assert 'id="show-guild"' in html
     assert 'id="show-guild-raid"' in html

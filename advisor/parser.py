@@ -8,6 +8,21 @@ from pathlib import Path
 from typing import Any
 
 
+class PlayerDumpSelectionError(ValueError):
+    """Raised when a requested player dump filename is unsafe or unsupported."""
+
+
+def _decode_player_dump(path: Path, *, description: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{description} is invalid JSON: {path.name}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"Player dump must contain a JSON object: {path.name}")
+    return payload
+
+
 def load_latest_player_dump(dumps_dir: Path) -> tuple[Path, dict[str, Any]]:
     """Return the newest player dump and its decoded JSON payload."""
     candidates = sorted(
@@ -19,14 +34,27 @@ def load_latest_player_dump(dumps_dir: Path) -> tuple[Path, dict[str, Any]]:
         raise FileNotFoundError("No player_*.json dumps were found.")
 
     latest = candidates[0]
-    try:
-        payload = json.loads(latest.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Latest player dump is invalid JSON: {latest.name}") from exc
+    return latest, _decode_player_dump(latest, description="Latest player dump")
 
-    if not isinstance(payload, dict):
-        raise ValueError(f"Player dump must contain a JSON object: {latest.name}")
-    return latest, payload
+
+def load_player_dump(
+    dumps_dir: Path, filename: str
+) -> tuple[Path, dict[str, Any]]:
+    """Load one explicitly selected player dump from the dumps directory."""
+    if (
+        not filename.startswith("player_")
+        or not filename.endswith(".json")
+        or Path(filename).name != filename
+        or ".." in filename
+    ):
+        raise PlayerDumpSelectionError(
+            "Selected dump filename must match player_*.json."
+        )
+
+    path = dumps_dir / filename
+    if not path.is_file():
+        raise FileNotFoundError(f"Player dump was not found: {filename}")
+    return path, _decode_player_dump(path, description="Selected player dump")
 
 
 def _abilities(unit: dict[str, Any]) -> list[dict[str, Any]]:

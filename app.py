@@ -27,7 +27,13 @@ from flask import (
 
 from advisor.actions import ActionModelError, generate_candidate_actions
 from advisor.knowledge import KnowledgeError, validate_knowledge_repository
-from advisor.parser import load_latest_player_dump, normalize_player, summarize_roster
+from advisor.parser import (
+    PlayerDumpSelectionError,
+    load_latest_player_dump,
+    load_player_dump,
+    normalize_player,
+    summarize_roster,
+)
 from advisor.scoring import ActionScoringError, score_guild_raid_actions
 
 # ── paths ────────────────────────────────────────────────────────────────
@@ -264,11 +270,12 @@ def download_endpoint(endpoint: str):
 def list_dumps():
     files = []
     for p in sorted(DUMPS_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+        modified = datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)
         files.append({
             "name": p.name,
             "size": p.stat().st_size,
-            "mtime": datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)
-                     .strftime("%Y-%m-%d %H:%M UTC"),
+            "mtime": modified.strftime("%Y-%m-%d %H:%M UTC"),
+            "mtime_iso": modified.isoformat().replace("+00:00", "Z"),
         })
     return jsonify({"ok": True, "files": files[:100]})
 
@@ -281,11 +288,20 @@ def download_dump(filename: str):
     return send_from_directory(DUMPS_DIR, filename, as_attachment=True)
 
 
+def _load_requested_advisor_dump():
+    selected_dump = request.args.get("dump", "")
+    if selected_dump:
+        return load_player_dump(DUMPS_DIR, selected_dump)
+    return load_latest_player_dump(DUMPS_DIR)
+
+
 @app.route("/api/advisor/summary")
 @requires_auth
 def advisor_summary():
     try:
-        source_path, payload = load_latest_player_dump(DUMPS_DIR)
+        source_path, payload = _load_requested_advisor_dump()
+    except PlayerDumpSelectionError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
     except FileNotFoundError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
     except ValueError as exc:
@@ -303,7 +319,9 @@ def advisor_summary():
 @requires_auth
 def advisor_actions():
     try:
-        source_path, payload = load_latest_player_dump(DUMPS_DIR)
+        source_path, payload = _load_requested_advisor_dump()
+    except PlayerDumpSelectionError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
     except FileNotFoundError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
     except ValueError as exc:
@@ -332,7 +350,9 @@ def advisor_actions():
 @requires_auth
 def advisor_recommendations():
     try:
-        source_path, payload = load_latest_player_dump(DUMPS_DIR)
+        source_path, payload = _load_requested_advisor_dump()
+    except PlayerDumpSelectionError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
     except FileNotFoundError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
     except ValueError as exc:
@@ -487,6 +507,13 @@ INDEX_HTML = r"""<!doctype html>
   }
   .advisor-head .card-title { margin-bottom: 3px; }
   .advisor-sub { color: var(--muted); font-size: 12px; }
+  .advisor-controls { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+  .advisor-controls select {
+    max-width: 180px; min-height: 38px; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 28px 7px 10px;
+    font-family: var(--font); font-size: 12px;
+  }
+  .advisor-controls select:focus { outline: none; border-color: var(--gold); }
   .advisor-refresh {
     min-height: 38px; padding: 7px 12px; font-size: 12px; flex-shrink: 0;
   }
@@ -549,6 +576,11 @@ INDEX_HTML = r"""<!doctype html>
   .advisor-policy {
     color: var(--muted); font-family: var(--mono); font-size: 10px;
     margin-top: 10px; text-align: right;
+  }
+  @media (max-width: 520px) {
+    .advisor-head { flex-direction: column; }
+    .advisor-controls { width: 100%; }
+    .advisor-controls select { flex: 1; max-width: none; min-width: 0; }
   }
 
   /* ── key status ── */
@@ -701,7 +733,12 @@ INDEX_HTML = r"""<!doctype html>
           Uses saved Player data — no officer access required
         </div>
       </div>
-      <button class="btn-ghost advisor-refresh" id="btn-advisor-refresh">Refresh</button>
+      <div class="advisor-controls">
+        <select id="advisor-dump" aria-label="Player dump for Advisor">
+          <option value="">Latest player dump</option>
+        </select>
+        <button class="btn-ghost advisor-refresh" id="btn-advisor-refresh">Refresh</button>
+      </div>
     </div>
     <div id="advisor-content" aria-live="polite">
       <div class="advisor-loading"><span class="spinner"></span>Checking your latest roster…</div>
@@ -865,7 +902,9 @@ async function refreshAdvisor() {
   button.disabled = true;
   $('advisor-content').innerHTML = '<div class="advisor-loading"><span class="spinner"></span>Checking your latest roster…</div>';
   try {
-    renderAdvisor(await api('/api/advisor/recommendations'));
+    const selectedDump = $('advisor-dump').value;
+    const query = selectedDump ? `?dump=${encodeURIComponent(selectedDump)}` : '';
+    renderAdvisor(await api('/api/advisor/recommendations' + query));
   } catch(e) {
     $('advisor-content').innerHTML = `<div class="advisor-empty error">
       <span class="state-icon">!</span>
@@ -877,6 +916,7 @@ async function refreshAdvisor() {
 }
 
 $('btn-advisor-refresh').onclick = refreshAdvisor;
+$('advisor-dump').onchange = refreshAdvisor;
 
 // ── Endpoint cards ──
 document.querySelectorAll('.ep-card').forEach(card => {
@@ -897,7 +937,11 @@ document.querySelectorAll('.ep-card').forEach(card => {
       $('btn-copy').disabled = false;
       $('btn-dl').disabled = false;
       toast(ep + ' fetched.');
-      refreshDumps();
+      await refreshDumps();
+      if (ep === 'player') {
+        $('advisor-dump').value = '';
+        refreshAdvisor();
+      }
       // scroll to output
       $('output-wrap').scrollIntoView({ behavior:'smooth', block:'start' });
     } catch(e) {
@@ -928,6 +972,20 @@ $('btn-dl').onclick = () => {
 async function refreshDumps() {
   try {
     const res = await api('/api/dumps');
+    const selector = $('advisor-dump');
+    const selected = selector.value;
+    const playerFiles = res.files.filter(file => file.name.startsWith('player_'));
+    selector.replaceChildren(new Option('Latest player dump', ''));
+    playerFiles.slice(0, 30).forEach(file => {
+      const modified = file.mtime_iso ? new Date(file.mtime_iso) : null;
+      const label = modified && !Number.isNaN(modified.valueOf())
+        ? modified.toLocaleString()
+        : file.name;
+      selector.add(new Option(label, file.name));
+    });
+    if ([...selector.options].some(option => option.value === selected)) {
+      selector.value = selected;
+    }
     const el = $('dumps-list');
     if (!res.files.length) { el.innerHTML = '<em>No dumps yet.</em>'; return; }
     el.innerHTML = res.files.slice(0, 30).map(f =>

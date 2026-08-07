@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from advisor.parser import load_latest_player_dump, normalize_player, summarize_roster
+from advisor.parser import (
+    PlayerDumpSelectionError,
+    load_latest_player_dump,
+    load_player_dump,
+    normalize_player,
+    summarize_roster,
+)
 
 
 def sample_payload():
@@ -98,6 +104,25 @@ def test_load_latest_player_dump(tmp_path: Path):
 
     assert path == new_dump
     assert payload["player"]["details"]["powerLevel"] == 44
+
+
+def test_loads_one_explicitly_selected_player_dump(tmp_path: Path):
+    selected = tmp_path / "player_20260801_000000.json"
+    selected.write_text(json.dumps(sample_payload()), encoding="utf-8")
+
+    path, payload = load_player_dump(tmp_path, selected.name)
+
+    assert path == selected
+    assert payload["player"]["details"]["name"] == "Test Commander"
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["guild_20260801_000000.json", "../player_secret.json", "player_../secret.json"],
+)
+def test_rejects_unsafe_or_non_player_dump_selection(tmp_path: Path, filename: str):
+    with pytest.raises(PlayerDumpSelectionError, match=r"player_\*\.json"):
+        load_player_dump(tmp_path, filename)
 
 
 def test_normalized_player_preserves_source_metadata(tmp_path: Path):
