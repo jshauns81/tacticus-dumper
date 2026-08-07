@@ -90,8 +90,9 @@ versions remain visible instead.
 Status: in progress. `/api/advisor/history` compares the two newest Player dumps by
 default or an explicitly selected pair. It reports unlocks, missing records, rank and
 rarity progression, character and ability levels, account power, and net badge, orb,
-and shard changes without guessing why resources changed. Recommendation-change
-explanations and a history UI remain pending.
+and shard changes without guessing why resources changed. The main page includes a
+Roster Changes card with readable Before/After selection, summary metrics, event rows,
+and collapsible resource changes. Recommendation-change explanations remain pending.
 
 - compare snapshots
 - explain recommendation changes

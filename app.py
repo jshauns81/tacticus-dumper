@@ -648,6 +648,49 @@ INDEX_HTML = r"""<!doctype html>
     .advisor-controls select { flex: 1; max-width: none; min-width: 0; }
   }
 
+  /* ── history ── */
+  .history-controls {
+    display: grid; grid-template-columns: 1fr 1fr auto; align-items: end;
+    gap: 8px; margin-bottom: 12px;
+  }
+  .history-controls label { color: var(--muted); font-size: 11px; }
+  .history-controls select {
+    display: block; width: 100%; min-width: 0; min-height: 42px; margin-top: 4px;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px; font-family: var(--font); font-size: 12px;
+  }
+  .history-controls select:focus { outline: none; border-color: var(--gold); }
+  .history-controls button { min-height: 42px; padding: 8px 12px; font-size: 12px; }
+  .history-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px;
+    margin-bottom: 10px;
+  }
+  .history-metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px; text-align: center;
+  }
+  .history-metric .value { color: var(--gold); font-family: var(--mono); font-size: 15px; }
+  .history-metric .label { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+  .history-events { display: grid; gap: 6px; }
+  .history-event {
+    display: flex; gap: 9px; align-items: flex-start; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+    font-size: 12px;
+  }
+  .history-event .event-icon { color: var(--green); font-weight: 700; }
+  .history-resources { margin-top: 9px; }
+  .history-resources summary { color: var(--gold); cursor: pointer; font-size: 12px; }
+  .history-resource-list { display: grid; gap: 5px; margin-top: 7px; }
+  .history-resource {
+    display: flex; justify-content: space-between; gap: 8px;
+    color: var(--muted); font-size: 11px;
+  }
+  @media (max-width: 520px) {
+    .history-controls { grid-template-columns: 1fr 1fr; }
+    .history-controls button { grid-column: 1 / -1; }
+    .history-metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+
   /* ── key status ── */
   .key-badge {
     display: inline-flex; align-items: center; gap: 6px;
@@ -810,6 +853,24 @@ INDEX_HTML = r"""<!doctype html>
     </div>
   </div>
 
+  <!-- HISTORY CARD -->
+  <div class="card" id="history-card">
+    <div class="card-title">Roster Changes</div>
+    <div class="advisor-sub" style="margin-bottom:12px;">Compare two saved Player dumps</div>
+    <div class="history-controls">
+      <label>Before
+        <select id="history-before" aria-label="History before dump"></select>
+      </label>
+      <label>After
+        <select id="history-after" aria-label="History after dump"></select>
+      </label>
+      <button class="btn-ghost" id="btn-history-refresh">Compare</button>
+    </div>
+    <div id="history-content" aria-live="polite">
+      <div class="advisor-loading"><span class="spinner"></span>Comparing saved rosters…</div>
+    </div>
+  </div>
+
   <!-- OUTPUT CARD -->
   <div class="card" id="output-wrap">
     <div class="output-bar">
@@ -835,6 +896,7 @@ INDEX_HTML = r"""<!doctype html>
 <script>
 const $ = id => document.getElementById(id);
 let lastFetch = null;
+let historyInitialized = false;
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
@@ -983,6 +1045,82 @@ async function refreshAdvisor() {
 $('btn-advisor-refresh').onclick = refreshAdvisor;
 $('advisor-dump').onchange = refreshAdvisor;
 
+// ── History ──
+const signedNumber = value => value > 0 ? `+${value}` : String(value);
+
+function historyEventLabel(event) {
+  const name = event.character?.name || event.character?.id || 'Character';
+  if (event.type === 'unlock') return `Unlocked ${name}`;
+  if (event.type === 'character_missing') return `${name} is missing from the newer dump`;
+  if (event.type === 'rank_up' || event.type === 'rank_changed') {
+    return `${name} rank ${event.before} → ${event.after}`;
+  }
+  if (event.type === 'promotion') return `${name} promoted to ${event.target_label}`;
+  if (event.type === 'ascension') return `${name} ascended to ${event.target_label}`;
+  if (event.type === 'character_level') return `${name} level ${event.before} → ${event.after}`;
+  if (event.type === 'ability_level') {
+    return `${name} · ${event.ability_id} ${event.before ?? '—'} → ${event.after ?? '—'}`;
+  }
+  if (event.type === 'resource_change') {
+    return `${name} · ${event.resource.replaceAll('_', ' ')} ${signedNumber(event.delta)}`;
+  }
+  return `${name} · progression ${event.before} → ${event.after}`;
+}
+
+function resourceChangeLabel(change) {
+  const parts = [change.alliance, change.rarity, change.resource.replaceAll('_', ' ')]
+    .filter(Boolean);
+  if (change.character_id) parts.push(change.character_id);
+  return parts.join(' · ');
+}
+
+function renderHistory(data) {
+  const summary = data.summary;
+  const metrics = [
+    ['Power', signedNumber(summary.power_delta)],
+    ['Units', signedNumber(summary.unit_count_delta)],
+    ['Events', summary.events],
+    ['Resources', summary.resource_changes],
+  ].map(([label, value]) => `<div class="history-metric"><div class="value">${escapeHtml(value)}</div><div class="label">${label}</div></div>`).join('');
+
+  const events = (data.events || []).map(event =>
+    `<div class="history-event"><span class="event-icon">↗</span><span>${escapeHtml(historyEventLabel(event))}</span></div>`
+  ).join('');
+  const resources = (data.resource_changes || []).map(change =>
+    `<div class="history-resource"><span>${escapeHtml(resourceChangeLabel(change))}</span><span>${escapeHtml(signedNumber(change.delta))}</span></div>`
+  ).join('');
+
+  $('history-content').innerHTML = `<div class="history-metrics">${metrics}</div>
+    ${events ? `<div class="history-events">${events}</div>` : `<div class="advisor-empty"><span class="state-icon">✓</span><div><h3>No changes between these snapshots</h3><p>Choose dates farther apart to review roster progress.</p></div></div>`}
+    ${resources ? `<details class="history-resources"><summary>Resource changes (${summary.resource_changes})</summary><div class="history-resource-list">${resources}</div></details>` : ''}`;
+}
+
+async function refreshHistory() {
+  const before = $('history-before').value;
+  const after = $('history-after').value;
+  if ($('history-after').options.length < 2 || !before || !after) {
+    $('history-content').innerHTML = '<div class="advisor-empty error"><span class="state-icon">!</span><div><h3>Two Player dumps needed</h3><p>Fetch Player data again later to create a comparison.</p></div></div>';
+    return;
+  }
+  if (before === after) {
+    toast('Choose two different Player dumps.', 'err');
+    return;
+  }
+  const button = $('btn-history-refresh');
+  button.disabled = true;
+  $('history-content').innerHTML = '<div class="advisor-loading"><span class="spinner"></span>Comparing saved rosters…</div>';
+  try {
+    const query = `?before=${encodeURIComponent(before)}&after=${encodeURIComponent(after)}`;
+    renderHistory(await api('/api/advisor/history' + query));
+  } catch(e) {
+    $('history-content').innerHTML = `<div class="advisor-empty error"><span class="state-icon">!</span><div><h3>Couldn’t compare these dumps</h3><p>${escapeHtml(e.message)}</p></div></div>`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$('btn-history-refresh').onclick = refreshHistory;
+
 // ── Endpoint cards ──
 document.querySelectorAll('.ep-card').forEach(card => {
   card.onclick = async () => {
@@ -1006,6 +1144,7 @@ document.querySelectorAll('.ep-card').forEach(card => {
       if (ep === 'player') {
         $('advisor-dump').value = '';
         refreshAdvisor();
+        refreshHistory();
       }
       // scroll to output
       $('output-wrap').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -1050,6 +1189,32 @@ async function refreshDumps() {
     });
     if ([...selector.options].some(option => option.value === selected)) {
       selector.value = selected;
+    }
+    const beforeSelector = $('history-before');
+    const afterSelector = $('history-after');
+    const previousBefore = beforeSelector.value;
+    const previousAfter = afterSelector.value;
+    for (const historySelector of [beforeSelector, afterSelector]) {
+      historySelector.replaceChildren();
+      playerFiles.slice(0, 30).forEach(file => {
+        const modified = file.mtime_iso ? new Date(file.mtime_iso) : null;
+        const label = modified && !Number.isNaN(modified.valueOf())
+          ? modified.toLocaleString()
+          : file.name;
+        historySelector.add(new Option(label, file.name));
+      });
+    }
+    const values = [...afterSelector.options].map(option => option.value);
+    beforeSelector.value = values.includes(previousBefore)
+      ? previousBefore
+      : (values[1] || values[0] || '');
+    afterSelector.value = values.includes(previousAfter)
+      ? previousAfter
+      : (values[0] || '');
+    $('btn-history-refresh').disabled = playerFiles.length < 2;
+    if (!historyInitialized) {
+      historyInitialized = true;
+      refreshHistory();
     }
     const el = $('dumps-list');
     if (!res.files.length) { el.innerHTML = '<em>No dumps yet.</em>'; return; }
