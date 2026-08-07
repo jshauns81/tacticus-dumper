@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "DefendTheDivineWork",
+  "name": "Defend the Divine Work",
+  "ability_type": "active",
+  "targets": ["self_and_adjacent_friendly_mechanical_units"],
+  "mechanics": [
+    "Repairs Actus and friendly adjacent Mechanical units.",
+    "The repair can activate Galvanic Field, but this ability's own level scales repair rather than extra-attack damage."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["mechanical_repair"],
+  "breakpoint_notes": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Actus",
+      "notes": "Current active ability text; intentionally not linked to the extra-attack scoring role because its level scales repair."
+    }
+  ]
+}

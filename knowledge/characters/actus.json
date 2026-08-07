@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "admecManipulus",
+  "name": "Actus",
+  "faction_id": "Adeptus Mechanicus",
+  "alliance_id": "Imperial",
+  "base_rarity": "Rare",
+  "abilities": ["DefendTheDivineWork", "GalvanicField"],
+  "traits": ["Mechanic", "Mechanical"],
+  "roles": ["mechanical_extra_attack_enabler", "mechanical_sustain"],
+  "mode_evaluations": [],
+  "breakpoints": [],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Actus",
+      "notes": "Character faction, traits, base rarity, and current ability mechanics."
+    },
+    {
+      "type": "observed_player_data",
+      "reference": "Sanitized Tacticus Player API export",
+      "notes": "Stable API character and ability identifiers only; no player values retained."
+    }
+  ]
+}

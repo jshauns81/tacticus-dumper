@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "GalvanicField",
+  "name": "Galvanic Field",
+  "ability_type": "passive",
+  "targets": ["friendly_mechanical_unit_repaired_by_actus"],
+  "mechanics": [
+    "When Actus repairs another unit, that unit immediately attacks a target in range.",
+    "The triggered attack uses a level-dependent percentage of the unit's damage and has a per-hit damage cap.",
+    "Actus can repair another Mechanical unit even when it is at full health."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["triggered_attack_damage_percentage", "per_hit_damage_cap"],
+  "supports_roles": ["mechanical_extra_attack_enabler"],
+  "breakpoint_notes": [
+    "Value requires another friendly Mechanical unit with a target in range when repaired."
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Actus",
+      "notes": "Current passive ability text and scaling dimensions."
+    }
+  ]
+}

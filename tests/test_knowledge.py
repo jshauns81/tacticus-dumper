@@ -217,32 +217,38 @@ def test_repository_knowledge_is_valid():
 
     assert {collection: sorted(entries) for collection, entries in records.items()} == {
         "characters": [
+            "admecManipulus",
+            "admecRuststalker",
             "eldarAutarch",
             "eldarFarseer",
             "tauCrisis",
             "tauDarkstrider",
         ],
         "abilities": [
+            "CordClaw",
             "CyclicIonBlaster",
+            "DefendTheDivineWork",
             "Doom",
             "EarlyWarningOverride",
             "Executioner",
             "FightingRetreat",
+            "GalvanicField",
             "Loki_SwoopingHawk",
+            "OptimizedGait",
             "PathOfCommand",
             "StructuralAnalyser",
         ],
         "effects": ["doomNormalAttackAmplification"],
         "modes": ["guildRaid"],
         "encounters": [],
-        "team_archetypes": ["doomMultiHitCore"],
+        "team_archetypes": ["doomMultiHitCore", "mechanicalReactionCore"],
         "progression_models": [
             "characterAbilityLevelCosts",
             "characterRanks",
             "characterUnlockCosts",
             "unitPromotionAscensionCosts",
         ],
-        "scoring_models": ["guildRaidCoreV1"],
+        "scoring_models": ["guildRaidCoreV1", "guildRaidMechanicalCoreV1"],
     }
 
 

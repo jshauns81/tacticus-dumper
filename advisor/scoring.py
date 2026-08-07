@@ -10,17 +10,59 @@ class ActionScoringError(ValueError):
     """Raised when scoring knowledge cannot produce recommendations."""
 
 
-def _matching_policy(
+def _matching_policies(
     scoring_models: dict[str, dict[str, Any]], mode_id: str
-) -> dict[str, Any]:
-    matching = [
-        model for model in scoring_models.values() if model.get("mode_id") == mode_id
-    ]
-    if len(matching) != 1:
+) -> list[dict[str, Any]]:
+    matching = sorted(
+        [
+            model
+            for model in scoring_models.values()
+            if model.get("mode_id") == mode_id
+        ],
+        key=lambda model: model["id"],
+    )
+    if not matching:
         raise ActionScoringError(
-            f"Expected exactly one scoring model for mode {mode_id}."
+            f"Expected at least one scoring model for mode {mode_id}."
         )
-    return matching[0]
+    return matching
+
+
+def _shared_project_limits(policies: list[dict[str, Any]]) -> tuple[int, int]:
+    baseline = policies[0]
+    comparable_fields = ("weights", "max_projects", "max_projects_per_character")
+    for policy in policies[1:]:
+        if any(policy[field] != baseline[field] for field in comparable_fields):
+            raise ActionScoringError(
+                "Guild Raid scoring policies must use comparable weights and project limits."
+            )
+    return baseline["max_projects"], baseline["max_projects_per_character"]
+
+
+def _archetype_summary(archetype: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": archetype["id"],
+        "name": archetype["name"],
+        "required_roles": archetype["required_roles"],
+        "optional_roles": archetype.get("optional_roles") or [],
+        "exclusions": archetype.get("exclusions") or [],
+    }
+
+
+def _owned_archetype_roles(
+    owned_ids: set[str],
+    archetype: dict[str, Any],
+    characters: dict[str, dict[str, Any]],
+) -> set[str]:
+    return {
+        role
+        for role, candidate_ids in archetype.get("candidates_by_role", {}).items()
+        if any(
+            character_id in owned_ids
+            and role in characters.get(character_id, {}).get("roles", [])
+            for character_id in candidate_ids
+        )
+    }
 
 
 def _component(
@@ -125,22 +167,21 @@ def score_guild_raid_actions(
     mode_id: str = "guildRaid",
 ) -> dict[str, Any]:
     """Return at most three explainable Guild Raid projects."""
-    policy = _matching_policy(knowledge["scoring_models"], mode_id)
+    policies = _matching_policies(knowledge["scoring_models"], mode_id)
     try:
         mode = knowledge["modes"][mode_id]
-        archetype = knowledge["team_archetypes"][policy["team_archetype_id"]]
+        policy_contexts = [
+            (
+                policy,
+                knowledge["team_archetypes"][policy["team_archetype_id"]],
+            )
+            for policy in policies
+        ]
     except KeyError as exc:
         raise ActionScoringError(f"Scoring knowledge reference is missing: {exc}") from exc
 
-    required_roles = set(archetype["required_roles"])
-    optional_roles = set(archetype.get("optional_roles") or [])
-    weights = policy["weights"]
     owned_ids = {unit["id"] for unit in normalized.get("units") or []}
-    owned_roles = {
-        role
-        for character_id in owned_ids
-        for role in knowledge["characters"].get(character_id, {}).get("roles", [])
-    }
+    max_projects, max_projects_per_character = _shared_project_limits(policies)
 
     excluded = Counter()
     scored: list[dict[str, Any]] = []
@@ -152,150 +193,188 @@ def score_guild_raid_actions(
             continue
 
         character_roles = set(character.get("roles") or [])
-        archetype_roles = {
-            role
-            for role, character_ids in archetype.get("candidates_by_role", {}).items()
-            if character_id in character_ids
-        }
-        matched_required = sorted(character_roles & required_roles & archetype_roles)
-        matched_optional = sorted(character_roles & optional_roles & archetype_roles)
-        if not matched_required and not matched_optional:
-            excluded["no_archetype_role"] += 1
-            continue
-
-        components: list[dict[str, Any]] = []
-        if matched_required:
-            components.append(
-                _component(
-                    "required_role",
-                    weights["required_role"],
-                    f"Fills required role(s): {', '.join(matched_required)}.",
-                    [character_id, archetype["id"]],
-                )
+        matched_an_archetype = False
+        action_matches: list[dict[str, Any]] = []
+        for policy, archetype in policy_contexts:
+            required_roles = set(archetype["required_roles"])
+            optional_roles = set(archetype.get("optional_roles") or [])
+            archetype_roles = {
+                role
+                for role, character_ids in archetype.get(
+                    "candidates_by_role", {}
+                ).items()
+                if character_id in character_ids
+            }
+            matched_required = sorted(
+                character_roles & required_roles & archetype_roles
             )
-        if matched_optional:
-            components.append(
-                _component(
-                    "optional_role",
-                    weights["optional_role"],
-                    f"Fills optional role(s): {', '.join(matched_optional)}.",
-                    [character_id, archetype["id"]],
-                )
+            matched_optional = sorted(
+                character_roles & optional_roles & archetype_roles
             )
-
-        evidence_records: list[tuple[str, str]] = [
-            ("characters", character_id),
-            ("team_archetypes", archetype["id"]),
-        ]
-        action_type = action["type"]
-        ability = None
-        if action_type == "ability_level":
-            ability_id = action["ability"]["id"]
-            ability = knowledge["abilities"].get(ability_id)
-            aligned_roles = sorted(
-                set((ability or {}).get("supports_roles") or [])
-                & character_roles
-                & (required_roles | optional_roles)
-            )
-            if not aligned_roles:
-                excluded["undocumented_ability_role"] += 1
+            if not matched_required and not matched_optional:
                 continue
-            components.append(
-                _component(
-                    "role_aligned_ability",
-                    weights["role_aligned_ability"],
-                    f"Directly advances {ability['name']} for role(s): "
-                    f"{', '.join(aligned_roles)}.",
-                    [ability_id, archetype["id"]],
-                )
-            )
-            evidence_records.append(("abilities", ability_id))
-        elif action_type in {"promotion", "ascension", "rank"}:
-            components.append(
-                _component(
-                    "general_progression",
-                    weights["general_progression"],
-                    "Improves a documented archetype character's general progression.",
-                    [character_id, archetype["id"]],
-                )
-            )
-        elif action_type == "unlock":
-            if set(matched_required) - owned_roles:
+            matched_an_archetype = True
+
+            weights = policy["weights"]
+            components: list[dict[str, Any]] = []
+            if matched_required:
                 components.append(
                     _component(
-                        "unlock_missing_required_role",
-                        weights["unlock_missing_required_role"],
-                        "Unlocks a required role not currently covered by known owned characters.",
+                        "required_role",
+                        weights["required_role"],
+                        f"Fills required role(s): {', '.join(matched_required)}.",
                         [character_id, archetype["id"]],
+                    )
+                )
+            if matched_optional:
+                components.append(
+                    _component(
+                        "optional_role",
+                        weights["optional_role"],
+                        f"Fills optional role(s): {', '.join(matched_optional)}.",
+                        [character_id, archetype["id"]],
+                    )
+                )
+
+            evidence_records: list[tuple[str, str]] = [
+                ("characters", character_id),
+                ("team_archetypes", archetype["id"]),
+            ]
+            action_type = action["type"]
+            ability = None
+            if action_type == "ability_level":
+                ability_id = action["ability"]["id"]
+                ability = knowledge["abilities"].get(ability_id)
+                aligned_roles = sorted(
+                    set((ability or {}).get("supports_roles") or [])
+                    & character_roles
+                    & (required_roles | optional_roles)
+                    & archetype_roles
+                )
+                if not aligned_roles:
+                    continue
+                components.append(
+                    _component(
+                        "role_aligned_ability",
+                        weights["role_aligned_ability"],
+                        f"Directly advances {ability['name']} for role(s): "
+                        f"{', '.join(aligned_roles)}.",
+                        [ability_id, archetype["id"]],
+                    )
+                )
+                evidence_records.append(("abilities", ability_id))
+            elif action_type in {"promotion", "ascension", "rank"}:
+                components.append(
+                    _component(
+                        "general_progression",
+                        weights["general_progression"],
+                        "Improves a documented archetype character's general progression.",
+                        [character_id, archetype["id"]],
+                    )
+                )
+            elif action_type == "unlock":
+                owned_roles = _owned_archetype_roles(
+                    owned_ids, archetype, knowledge["characters"]
+                )
+                if set(matched_required) - owned_roles:
+                    components.append(
+                        _component(
+                            "unlock_missing_required_role",
+                            weights["unlock_missing_required_role"],
+                            "Unlocks a required role not currently covered by known owned characters.",
+                            [character_id, archetype["id"]],
+                        )
+                    )
+                else:
+                    components.append(
+                        _component(
+                            "general_progression",
+                            weights["general_progression"],
+                            "Adds another documented character for the selected archetype.",
+                            [character_id, archetype["id"]],
+                        )
+                    )
+            else:
+                continue
+
+            if action.get("availability") == "ready":
+                components.append(
+                    _component(
+                        "ready",
+                        weights["ready"],
+                        "All resources reported by the Player API are sufficient.",
+                        [policy["id"]],
                     )
                 )
             else:
                 components.append(
                     _component(
-                        "general_progression",
-                        weights["general_progression"],
-                        "Adds another documented character for the selected archetype.",
-                        [character_id, archetype["id"]],
+                        "conditional_resources",
+                        weights["conditional_resources"],
+                        "Reported resources are sufficient, but an unreported resource must be checked.",
+                        [policy["id"]],
                     )
                 )
+
+            owned_roles = _owned_archetype_roles(
+                owned_ids, archetype, knowledge["characters"]
+            )
+            projected_roles = (
+                owned_roles | set(matched_required) | set(matched_optional)
+            )
+            if required_roles <= projected_roles:
+                components.append(
+                    _component(
+                        "complete_required_role_core",
+                        weights["complete_required_role_core"],
+                        "Keeps or completes coverage of every required archetype role.",
+                        [archetype["id"]],
+                    )
+                )
+
+            score = sum(component["points"] for component in components)
+            action_matches.append(
+                {
+                    "action": action,
+                    "title": _action_title(action, ability),
+                    "score": score,
+                    "archetype": {
+                        "id": archetype["id"],
+                        "name": archetype["name"],
+                    },
+                    "policy_id": policy["id"],
+                    "components": components,
+                    "why": " ".join(
+                        component["reason"] for component in components
+                    ),
+                    "assumptions": [
+                        "Scores compare ordinal priorities; they do not predict boss damage.",
+                        *(
+                            [
+                                "Coin sufficiency must be confirmed in game because the Player API does not report coins."
+                            ]
+                            if action.get("availability")
+                            == "possible_if_unreported_coins_sufficient"
+                            else []
+                        ),
+                    ],
+                    "stopping_point": _stopping_point(action),
+                    "opportunity_costs": _opportunity_costs(action),
+                    "evidence": _evidence(evidence_records, knowledge),
+                }
+            )
+
+        if action_matches:
+            action_matches.sort(
+                key=lambda item: (-item["score"], item["policy_id"])
+            )
+            scored.append(action_matches[0])
+        elif not matched_an_archetype:
+            excluded["no_archetype_role"] += 1
+        elif action["type"] == "ability_level":
+            excluded["undocumented_ability_role"] += 1
         else:
             excluded["unsupported_action_type"] += 1
-            continue
-
-        if action.get("availability") == "ready":
-            components.append(
-                _component(
-                    "ready",
-                    weights["ready"],
-                    "All resources reported by the Player API are sufficient.",
-                    [policy["id"]],
-                )
-            )
-        else:
-            components.append(
-                _component(
-                    "conditional_resources",
-                    weights["conditional_resources"],
-                    "Reported resources are sufficient, but an unreported resource must be checked.",
-                    [policy["id"]],
-                )
-            )
-
-        projected_roles = owned_roles | character_roles
-        if required_roles <= projected_roles:
-            components.append(
-                _component(
-                    "complete_required_role_core",
-                    weights["complete_required_role_core"],
-                    "Keeps or completes coverage of every required archetype role.",
-                    [archetype["id"]],
-                )
-            )
-
-        score = sum(component["points"] for component in components)
-        scored.append(
-            {
-                "action": action,
-                "title": _action_title(action, ability),
-                "score": score,
-                "components": components,
-                "why": " ".join(component["reason"] for component in components),
-                "assumptions": [
-                    "Scores compare ordinal priorities; they do not predict boss damage.",
-                    *(
-                        [
-                            "Coin sufficiency must be confirmed in game because the Player API does not report coins."
-                        ]
-                        if action.get("availability")
-                        == "possible_if_unreported_coins_sufficient"
-                        else []
-                    ),
-                ],
-                "stopping_point": _stopping_point(action),
-                "opportunity_costs": _opportunity_costs(action),
-                "evidence": _evidence(evidence_records, knowledge),
-            }
-        )
 
     scored.sort(key=lambda item: (-item["score"], item["action"]["id"]))
     selected = []
@@ -303,10 +382,10 @@ def score_guild_raid_actions(
     selection_reason: dict[str, str] = {}
     for item in scored:
         character_id = item["action"]["character"]["id"]
-        if len(selected) >= policy["max_projects"]:
+        if len(selected) >= max_projects:
             selection_reason[item["action"]["id"]] = "project_limit"
             continue
-        if character_counts[character_id] >= policy["max_projects_per_character"]:
+        if character_counts[character_id] >= max_projects_per_character:
             selection_reason[item["action"]["id"]] = "character_project_limit"
             continue
         character_counts[character_id] += 1
@@ -319,7 +398,10 @@ def score_guild_raid_actions(
     alternatives = [
         {
             "action_id": item["action"]["id"],
+            "title": item["title"],
             "character": item["action"]["character"],
+            "archetype": item["archetype"],
+            "policy_id": item["policy_id"],
             "score": item["score"],
             "reason": selection_reason.get(item["action"]["id"], "lower_score"),
         }
@@ -349,6 +431,38 @@ def score_guild_raid_actions(
             "changes."
         )
     )
+    archetypes = [_archetype_summary(archetype) for _, archetype in policy_contexts]
+    policy_details = [
+        {
+            "id": policy["id"],
+            "name": policy["name"],
+            "knowledge_version": policy["knowledge_version"],
+            "last_reviewed": policy["last_reviewed"],
+            "team_archetype_id": policy["team_archetype_id"],
+            "weights": policy["weights"],
+            "sources": policy["sources"],
+        }
+        for policy in policies
+    ]
+    policy_summary = {
+        "id": (
+            policies[0]["id"]
+            if len(policies) == 1
+            else "multiArchetypeGuildRaid"
+        ),
+        "name": (
+            policies[0]["name"]
+            if len(policies) == 1
+            else "Validated Guild Raid archetype policies"
+        ),
+        "knowledge_version": max(
+            policy["knowledge_version"] for policy in policies
+        ),
+        "last_reviewed": max(policy["last_reviewed"] for policy in policies),
+        "policy_ids": [policy["id"] for policy in policies],
+        "max_projects": max_projects,
+        "max_projects_per_character": max_projects_per_character,
+    }
 
     return {
         "status": status,
@@ -356,13 +470,8 @@ def score_guild_raid_actions(
         "source": candidate_result["source"],
         "player": candidate_result["player"],
         "mode": {"id": mode_id, "name": mode["name"]},
-        "archetype": {
-            "id": archetype["id"],
-            "name": archetype["name"],
-            "required_roles": archetype["required_roles"],
-            "optional_roles": archetype.get("optional_roles") or [],
-            "exclusions": archetype.get("exclusions") or [],
-        },
+        "archetype": archetypes[0],
+        "archetypes": archetypes,
         "projects": selected,
         "alternatives": alternatives,
         "counts": {
@@ -377,15 +486,8 @@ def score_guild_raid_actions(
             "known_owned_characters": known_owned_characters,
             "unknown_candidate_actions": excluded["unknown_character"],
         },
-        "policy": {
-            "id": policy["id"],
-            "knowledge_version": policy["knowledge_version"],
-            "last_reviewed": policy["last_reviewed"],
-            "weights": weights,
-            "max_projects": policy["max_projects"],
-            "max_projects_per_character": policy["max_projects_per_character"],
-            "sources": policy["sources"],
-        },
+        "policy": policy_summary,
+        "policies": policy_details,
         "scope": (
             "Guild Raid recommendations cover only characters and ability-role links "
             "present in the validated knowledge repository."

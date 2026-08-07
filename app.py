@@ -1028,7 +1028,7 @@ function renderAdvisor(data) {
       const costs = (project.opportunity_costs || []).map(note => `<li>${escapeHtml(note)}</li>`).join('');
       return `<article class="advisor-project">
         <div class="advisor-project-top">
-          <span class="advisor-rank">Project ${project.rank} · ${escapeHtml(action.character.name)}</span>
+          <span class="advisor-rank">Project ${project.rank} · ${escapeHtml(action.character.name)} · ${escapeHtml(project.archetype?.name || 'Guild Raid')}</span>
           <span class="advisor-score">Score ${project.score}</span>
         </div>
         <h3>${escapeHtml(project.title || advisorActionLabel(action))}</h3>
@@ -1043,8 +1043,9 @@ function renderAdvisor(data) {
       </article>`;
     }).join('')}</div>`;
   }
+  const archetypeCount = data.archetypes?.length || 1;
   content.insertAdjacentHTML('beforeend',
-    `<div class="advisor-policy">${escapeHtml(data.policy.id)} · reviewed ${escapeHtml(data.policy.last_reviewed)}</div>`
+    `<div class="advisor-policy">${archetypeCount} validated Guild Raid archetype${archetypeCount === 1 ? '' : 's'} · reviewed ${escapeHtml(data.policy.last_reviewed)}</div>`
   );
 }
 

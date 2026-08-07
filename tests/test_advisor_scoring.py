@@ -96,7 +96,13 @@ def test_scores_documented_role_actions_and_limits_one_project_per_character():
     assert result["alternatives"] == [
         {
             "action_id": "promotion:eldarFarseer:8",
+            "title": "Promote to 6 Stars",
             "character": {"id": "eldarFarseer", "name": "Eldryon"},
+            "archetype": {
+                "id": "doomMultiHitCore",
+                "name": "Doom Multi-Hit Core",
+            },
+            "policy_id": "guildRaidCoreV1",
             "score": 75,
             "reason": "character_project_limit",
         }
@@ -173,14 +179,24 @@ def test_returns_explicit_status_when_known_characters_have_no_ready_action():
     ]
 
 
-def test_rejects_ambiguous_scoring_policy():
+def test_rejects_missing_scoring_policy():
     records = knowledge()
     records = deepcopy(records)
-    records["scoring_models"]["duplicate"] = dict(
-        records["scoring_models"]["guildRaidCoreV1"], id="duplicate"
-    )
+    records["scoring_models"] = {}
 
-    with pytest.raises(ActionScoringError, match="exactly one"):
+    with pytest.raises(ActionScoringError, match="at least one"):
+        score_guild_raid_actions(
+            {"units": []}, candidate_result([]), records
+        )
+
+
+def test_rejects_incomparable_cross_archetype_policy_weights():
+    records = deepcopy(knowledge())
+    records["scoring_models"]["guildRaidMechanicalCoreV1"]["weights"][
+        "required_role"
+    ] += 1
+
+    with pytest.raises(ActionScoringError, match="comparable weights"):
         score_guild_raid_actions(
             {"units": []}, candidate_result([]), records
         )
@@ -221,4 +237,65 @@ def test_scores_sourced_optional_support_passives_but_not_unrelated_actives():
     ]
     assert result["counts"]["excluded_by_reason"] == {
         "undocumented_ability_role": 2
+    }
+
+
+def test_compares_projects_across_validated_archetypes_without_duplicates():
+    normalized = {
+        "units": [
+            {"id": "eldarFarseer"},
+            {"id": "tauCrisis"},
+            {"id": "admecManipulus"},
+            {"id": "admecRuststalker"},
+        ]
+    }
+    rho_promotion = {
+        "id": "promotion:admecRuststalker:8",
+        "type": "promotion",
+        "character": {"id": "admecRuststalker", "name": "Exitor-Rho"},
+        "progression": {"target_label": "6 Stars"},
+        "prerequisites": [],
+        "costs": [],
+        "availability": "ready",
+    }
+    actions = [
+        ability_action("eldarFarseer", "Eldryon", "Doom"),
+        ability_action(
+            "admecManipulus", "Actus", "GalvanicField", target_level=13
+        ),
+        ability_action(
+            "admecManipulus", "Actus", "DefendTheDivineWork", target_level=14
+        ),
+        rho_promotion,
+    ]
+
+    result = score_guild_raid_actions(
+        normalized, candidate_result(actions), knowledge()
+    )
+
+    assert [project["action"]["id"] for project in result["projects"]] == [
+        "ability_level:admecManipulus:GalvanicField:13",
+        "ability_level:eldarFarseer:Doom:20",
+        "promotion:admecRuststalker:8",
+    ]
+    assert [project["archetype"]["id"] for project in result["projects"]] == [
+        "mechanicalReactionCore",
+        "doomMultiHitCore",
+        "mechanicalReactionCore",
+    ]
+    assert result["policy"]["id"] == "multiArchetypeGuildRaid"
+    assert result["policy"]["policy_ids"] == [
+        "guildRaidCoreV1",
+        "guildRaidMechanicalCoreV1",
+    ]
+    assert [archetype["id"] for archetype in result["archetypes"]] == [
+        "doomMultiHitCore",
+        "mechanicalReactionCore",
+    ]
+    assert result["counts"] == {
+        "candidate_actions": 4,
+        "scored_actions": 3,
+        "returned_projects": 3,
+        "excluded_actions": 1,
+        "excluded_by_reason": {"undocumented_ability_role": 1},
     }

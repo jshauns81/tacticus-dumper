@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "CordClaw",
+  "name": "Chordclaw",
+  "ability_type": "active",
+  "targets": ["adjacent_enemy"],
+  "mechanics": [
+    "Deals four hits of Direct damage to an adjacent enemy.",
+    "Exitor-Rho's further attacks gain two additional Direct-damage hits until the end of his next turn."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["initial_direct_damage", "additional_direct_damage_per_attack"],
+  "supports_roles": ["mechanical_reaction_damage"],
+  "breakpoint_notes": [
+    "Value rises when friendly Mechanical attacks can trigger multiple further Exitor-Rho attacks during the effect window."
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Exitor-Rho",
+      "notes": "Current active ability text; the API identifier retains the CordClaw spelling."
+    }
+  ]
+}

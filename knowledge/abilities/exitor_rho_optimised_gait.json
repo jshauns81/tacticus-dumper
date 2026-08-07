@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "OptimizedGait",
+  "name": "Optimised Gait",
+  "ability_type": "passive",
+  "targets": ["enemy_adjacent_to_exitor_rho"],
+  "mechanics": [
+    "When another friendly Mechanical unit attacks an enemy adjacent to Exitor-Rho, he deals two hits of Energy damage to that enemy.",
+    "If that enemy is defeated by a friendly Mechanical unit or the triggered attack, Exitor-Rho moves onto its hex."
+  ],
+  "produces_effects": [],
+  "consumes_effects": [],
+  "scaling_dimensions": ["triggered_energy_damage"],
+  "supports_roles": ["mechanical_reaction_damage"],
+  "breakpoint_notes": [
+    "Requires Exitor-Rho to remain adjacent to the target while other friendly Mechanical units attack it."
+  ],
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Exitor-Rho",
+      "notes": "Current passive ability text; the API identifier uses American spelling."
+    }
+  ]
+}

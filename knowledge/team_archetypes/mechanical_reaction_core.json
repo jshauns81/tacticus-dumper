@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "knowledge_version": "2026.08.06",
+  "effective_from": "2026-08-06",
+  "last_reviewed": "2026-08-06",
+  "id": "mechanicalReactionCore",
+  "name": "Mechanical Reaction Core",
+  "mode_ids": ["guildRaid"],
+  "required_roles": [
+    "mechanical_extra_attack_enabler",
+    "mechanical_reaction_damage"
+  ],
+  "optional_roles": ["mechanical_summoner", "mechanical_damage_support"],
+  "enabling_effect_ids": [],
+  "exclusions": [
+    "Exitor-Rho must remain adjacent to the target for Optimised Gait to trigger.",
+    "Actus must repair another friendly Mechanical unit that has a target in range to trigger Galvanic Field.",
+    "Do not use Adeptus Mechanicus characters where the encounter disallows that faction."
+  ],
+  "candidates_by_role": {
+    "mechanical_extra_attack_enabler": ["admecManipulus"],
+    "mechanical_reaction_damage": ["admecRuststalker"]
+  },
+  "sources": [
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.xyz/raids/bosses/teams",
+      "notes": "Current top-score Guild Raid compositions repeatedly pair Actus with Exitor-Rho in mechanical teams."
+    },
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Actus",
+      "notes": "Galvanic Field triggers an immediate attack from another repaired Mechanical unit."
+    },
+    {
+      "type": "community_consensus",
+      "reference": "https://tacticus.wiki.gg/wiki/Exitor-Rho",
+      "notes": "Optimised Gait and Chordclaw define Exitor-Rho's repeated reaction-damage role."
+    }
+  ]
+}
