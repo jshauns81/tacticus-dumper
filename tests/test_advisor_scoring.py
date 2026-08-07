@@ -299,3 +299,22 @@ def test_compares_projects_across_validated_archetypes_without_duplicates():
         "excluded_actions": 1,
         "excluded_by_reason": {"undocumented_ability_role": 1},
     }
+    assert [
+        (option["id"], option["project_score_total"], option["recommended"])
+        for option in result["archetype_options"]
+    ] == [
+        ("doomMultiHitCore", 85, False),
+        ("mechanicalReactionCore", 160, True),
+    ]
+
+    focused = score_guild_raid_actions(
+        normalized,
+        candidate_result(actions),
+        knowledge(),
+        archetype_id="mechanicalReactionCore",
+    )
+    assert [project["action"]["id"] for project in focused["projects"]] == [
+        "ability_level:admecManipulus:GalvanicField:13",
+        "promotion:admecRuststalker:8",
+    ]
+    assert focused["archetype"]["id"] == "mechanicalReactionCore"

@@ -11,7 +11,9 @@ class ActionScoringError(ValueError):
 
 
 def _matching_policies(
-    scoring_models: dict[str, dict[str, Any]], mode_id: str
+    scoring_models: dict[str, dict[str, Any]],
+    mode_id: str,
+    archetype_id: str | None = None,
 ) -> list[dict[str, Any]]:
     matching = sorted(
         [
@@ -25,6 +27,16 @@ def _matching_policies(
         raise ActionScoringError(
             f"Expected at least one scoring model for mode {mode_id}."
         )
+    if archetype_id is not None:
+        matching = [
+            policy
+            for policy in matching
+            if policy["team_archetype_id"] == archetype_id
+        ]
+        if not matching:
+            raise ActionScoringError(
+                f"Unknown {mode_id} team archetype: {archetype_id}."
+            )
     return matching
 
 
@@ -37,6 +49,74 @@ def _shared_project_limits(policies: list[dict[str, Any]]) -> tuple[int, int]:
                 "Guild Raid scoring policies must use comparable weights and project limits."
             )
     return baseline["max_projects"], baseline["max_projects_per_character"]
+
+
+def _select_projects(
+    scored: list[dict[str, Any]],
+    max_projects: int,
+    max_projects_per_character: int,
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    ordered = sorted(
+        scored,
+        key=lambda item: (-item["score"], item["action"]["id"]),
+    )
+    selected: list[dict[str, Any]] = []
+    character_counts: Counter[str] = Counter()
+    selection_reason: dict[str, str] = {}
+    for item in ordered:
+        character_id = item["action"]["character"]["id"]
+        if len(selected) >= max_projects:
+            selection_reason[item["action"]["id"]] = "project_limit"
+            continue
+        if character_counts[character_id] >= max_projects_per_character:
+            selection_reason[item["action"]["id"]] = "character_project_limit"
+            continue
+        character_counts[character_id] += 1
+        selected.append(item)
+    return selected, selection_reason
+
+
+def _archetype_options(
+    scored_matches: list[dict[str, Any]],
+    policy_contexts: list[tuple[dict[str, Any], dict[str, Any]]],
+    max_projects: int,
+    max_projects_per_character: int,
+) -> list[dict[str, Any]]:
+    options = []
+    for _, archetype in policy_contexts:
+        candidates = [
+            item
+            for item in scored_matches
+            if item["archetype"]["id"] == archetype["id"]
+        ]
+        preview, _ = _select_projects(
+            candidates, max_projects, max_projects_per_character
+        )
+        options.append(
+            {
+                "id": archetype["id"],
+                "name": archetype["name"],
+                "project_count": len(preview),
+                "project_score_total": sum(item["score"] for item in preview),
+                "best_project_score": max(
+                    (item["score"] for item in preview), default=0
+                ),
+            }
+        )
+
+    if options:
+        recommended = max(
+            options,
+            key=lambda option: (
+                option["project_score_total"],
+                option["project_count"],
+                option["best_project_score"],
+                option["id"],
+            ),
+        )["id"]
+        for option in options:
+            option["recommended"] = option["id"] == recommended
+    return options
 
 
 def _archetype_summary(archetype: dict[str, Any]) -> dict[str, Any]:
@@ -165,9 +245,12 @@ def score_guild_raid_actions(
     knowledge: dict[str, dict[str, dict[str, Any]]],
     *,
     mode_id: str = "guildRaid",
+    archetype_id: str | None = None,
 ) -> dict[str, Any]:
     """Return at most three explainable Guild Raid projects."""
-    policies = _matching_policies(knowledge["scoring_models"], mode_id)
+    policies = _matching_policies(
+        knowledge["scoring_models"], mode_id, archetype_id
+    )
     try:
         mode = knowledge["modes"][mode_id]
         policy_contexts = [
@@ -185,6 +268,7 @@ def score_guild_raid_actions(
 
     excluded = Counter()
     scored: list[dict[str, Any]] = []
+    scored_matches: list[dict[str, Any]] = []
     for action in candidate_result.get("actions") or []:
         character_id = action.get("character", {}).get("id")
         character = knowledge["characters"].get(character_id)
@@ -365,6 +449,7 @@ def score_guild_raid_actions(
             )
 
         if action_matches:
+            scored_matches.extend(action_matches)
             action_matches.sort(
                 key=lambda item: (-item["score"], item["policy_id"])
             )
@@ -377,19 +462,9 @@ def score_guild_raid_actions(
             excluded["unsupported_action_type"] += 1
 
     scored.sort(key=lambda item: (-item["score"], item["action"]["id"]))
-    selected = []
-    character_counts: Counter[str] = Counter()
-    selection_reason: dict[str, str] = {}
-    for item in scored:
-        character_id = item["action"]["character"]["id"]
-        if len(selected) >= max_projects:
-            selection_reason[item["action"]["id"]] = "project_limit"
-            continue
-        if character_counts[character_id] >= max_projects_per_character:
-            selection_reason[item["action"]["id"]] = "character_project_limit"
-            continue
-        character_counts[character_id] += 1
-        selected.append(item)
+    selected, selection_reason = _select_projects(
+        scored, max_projects, max_projects_per_character
+    )
 
     for rank, item in enumerate(selected, start=1):
         item["rank"] = rank
@@ -413,13 +488,19 @@ def score_guild_raid_actions(
         action.get("character", {}).get("id")
         for action in candidate_result.get("actions") or []
     )
+    covered_character_ids = {
+        character_id
+        for _, archetype in policy_contexts
+        for character_ids in archetype.get("candidates_by_role", {}).values()
+        for character_id in character_ids
+    }
     known_owned_characters = [
         {
             "id": character_id,
             "name": knowledge["characters"][character_id]["name"],
             "candidate_actions": candidate_counts_by_character[character_id],
         }
-        for character_id in sorted(owned_ids & knowledge["characters"].keys())
+        for character_id in sorted(owned_ids & covered_character_ids)
     ]
     status = "projects_ready" if selected else "no_supported_project_ready"
     message = (
@@ -472,6 +553,12 @@ def score_guild_raid_actions(
         "mode": {"id": mode_id, "name": mode["name"]},
         "archetype": archetypes[0],
         "archetypes": archetypes,
+        "archetype_options": _archetype_options(
+            scored_matches,
+            policy_contexts,
+            max_projects,
+            max_projects_per_character,
+        ),
         "projects": selected,
         "alternatives": alternatives,
         "counts": {

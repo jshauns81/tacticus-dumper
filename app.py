@@ -64,6 +64,9 @@ BOOLEAN_SETTINGS = {
     "show_guild_raid": True,
 }
 
+ADVISOR_ARCHETYPE_SETTING = "advisor_archetype"
+ADVISOR_ARCHETYPE_AUTO = "auto"
+
 app = Flask(__name__)
 
 # ── basic auth ───────────────────────────────────────────────────────────
@@ -111,6 +114,55 @@ def save_config(cfg: dict) -> None:
 
 def get_api_key() -> str | None:
     return load_config().get("api_key") or os.environ.get("TACTICUS_KEY")
+
+
+class AdvisorArchetypeSelectionError(ValueError):
+    """Raised when an Advisor primary-team selection is unavailable."""
+
+
+def _configured_advisor_archetype() -> str:
+    configured = load_config().get(
+        ADVISOR_ARCHETYPE_SETTING, ADVISOR_ARCHETYPE_AUTO
+    )
+    return configured if isinstance(configured, str) else ADVISOR_ARCHETYPE_AUTO
+
+
+def _score_primary_advisor_team(
+    normalized: dict,
+    candidates: dict,
+    knowledge: dict,
+    selection: str,
+) -> dict:
+    all_teams = score_guild_raid_actions(normalized, candidates, knowledge)
+    options = all_teams["archetype_options"]
+    option_ids = {option["id"] for option in options}
+
+    if selection == ADVISOR_ARCHETYPE_AUTO:
+        selected = next(
+            (option["id"] for option in options if option["recommended"]),
+            None,
+        )
+        selection_mode = "recommended"
+    else:
+        selected = selection
+        selection_mode = "manual"
+
+    if selected not in option_ids:
+        raise AdvisorArchetypeSelectionError(
+            f"Primary team is unavailable: {selection}. "
+            "Choose a listed Guild Raid team."
+        )
+
+    focused = score_guild_raid_actions(
+        normalized,
+        candidates,
+        knowledge,
+        archetype_id=selected,
+    )
+    focused["archetype_options"] = options
+    focused["selected_archetype_id"] = selected
+    focused["selection_mode"] = selection_mode
+    return focused
 
 
 # ── pre-seed key from env if provided ────────────────────────────────────
@@ -191,6 +243,35 @@ def update_settings():
         if not isinstance(data[key], bool):
             return jsonify({"ok": False, "error": f"{key} must be a boolean."}), 400
         cfg[key] = data[key]
+    if ADVISOR_ARCHETYPE_SETTING in data:
+        selection = data[ADVISOR_ARCHETYPE_SETTING]
+        if not isinstance(selection, str):
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "advisor_archetype must be a team ID or auto.",
+                }
+            ), 400
+        try:
+            knowledge = validate_knowledge_repository(KNOWLEDGE_DIR)
+        except KnowledgeError as exc:
+            app.logger.exception("Advisor knowledge could not be loaded")
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": f"Advisor knowledge error: {exc}",
+                }
+            ), 500
+        valid_archetypes = {
+            policy["team_archetype_id"]
+            for policy in knowledge["scoring_models"].values()
+            if policy["mode_id"] == "guildRaid"
+        }
+        if selection != ADVISOR_ARCHETYPE_AUTO and selection not in valid_archetypes:
+            return jsonify(
+                {"ok": False, "error": "Unknown Advisor primary team."}
+            ), 400
+        cfg[ADVISOR_ARCHETYPE_SETTING] = selection
     save_config(cfg)
     return jsonify({"ok": True})
 
@@ -403,7 +484,12 @@ def advisor_recommendations():
             knowledge["progression_models"],
             knowledge["characters"],
         )
-        result = score_guild_raid_actions(normalized, candidates, knowledge)
+        selection = request.args.get("archetype") or _configured_advisor_archetype()
+        result = _score_primary_advisor_team(
+            normalized, candidates, knowledge, selection
+        )
+    except AdvisorArchetypeSelectionError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
     except (ActionModelError, ActionScoringError, KnowledgeError) as exc:
         app.logger.exception("Advisor recommendation knowledge could not be loaded")
         return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
@@ -446,15 +532,22 @@ def advisor_history():
             knowledge["progression_models"],
             knowledge["characters"],
         )
-        before_recommendations = score_guild_raid_actions(
-            before, before_candidates, knowledge
+        selection = request.args.get("archetype") or _configured_advisor_archetype()
+        after_recommendations = _score_primary_advisor_team(
+            after, after_candidates, knowledge, selection
         )
-        after_recommendations = score_guild_raid_actions(
-            after, after_candidates, knowledge
+        before_recommendations = _score_primary_advisor_team(
+            before,
+            before_candidates,
+            knowledge,
+            after_recommendations["selected_archetype_id"],
         )
         result["recommendation_changes"] = compare_recommendation_queues(
             before_recommendations, after_recommendations
         )
+        result["advisor_archetype"] = after_recommendations["archetype"]
+    except AdvisorArchetypeSelectionError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
     except (ActionModelError, ActionScoringError, KnowledgeError) as exc:
         app.logger.exception("Advisor history knowledge could not be loaded")
         return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
@@ -601,6 +694,23 @@ INDEX_HTML = r"""<!doctype html>
   .advisor-refresh {
     min-height: 38px; padding: 7px 12px; font-size: 12px; flex-shrink: 0;
   }
+  .advisor-team-picker {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center;
+    gap: 4px 10px; margin-bottom: 12px; padding: 10px 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .advisor-team-picker label {
+    color: var(--text); font-size: 12px; font-weight: 600;
+  }
+  .advisor-team-picker select {
+    width: 100%; min-width: 0; min-height: 38px; background: var(--card);
+    color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 28px 7px 10px; font-family: var(--font); font-size: 12px;
+  }
+  .advisor-team-picker select:focus { outline: none; border-color: var(--gold); }
+  .advisor-team-note {
+    grid-column: 2; color: var(--muted); font-size: 11px;
+  }
   .advisor-loading, .advisor-empty {
     display: flex; gap: 12px; align-items: flex-start;
     background: var(--surface); border: 1px solid var(--border);
@@ -665,6 +775,8 @@ INDEX_HTML = r"""<!doctype html>
     .advisor-head { flex-direction: column; }
     .advisor-controls { width: 100%; }
     .advisor-controls select { flex: 1; max-width: none; min-width: 0; }
+    .advisor-team-picker { grid-template-columns: 1fr; }
+    .advisor-team-note { grid-column: 1; }
   }
 
   /* ── history ── */
@@ -872,6 +984,15 @@ INDEX_HTML = r"""<!doctype html>
         <button class="btn-ghost advisor-refresh" id="btn-advisor-refresh">Refresh</button>
       </div>
     </div>
+    <div class="advisor-team-picker">
+      <label for="advisor-team">Primary team</label>
+      <select id="advisor-team" aria-label="Primary Guild Raid team" disabled>
+        <option value="auto">Choosing recommended team…</option>
+      </select>
+      <span class="advisor-team-note" id="advisor-team-note">
+        Every project stays focused on one team.
+      </span>
+    </div>
     <div id="advisor-content" aria-live="polite">
       <div class="advisor-loading"><span class="spinner"></span>Checking your latest roster…</div>
     </div>
@@ -999,8 +1120,28 @@ function advisorActionLabel(action) {
   return `${action.type === 'ascension' ? 'Ascend' : 'Promote'} to ${action.progression.target_label}`;
 }
 
+function renderAdvisorTeamSelector(data) {
+  const selector = $('advisor-team');
+  const options = data.archetype_options || [];
+  const recommended = options.find(option => option.recommended);
+  const selected = options.find(option => option.id === data.selected_archetype_id);
+  selector.replaceChildren();
+  if (recommended) {
+    selector.add(new Option(`Recommended — ${recommended.name}`, 'auto'));
+  }
+  options.forEach(option => selector.add(new Option(option.name, option.id)));
+  selector.value = data.selection_mode === 'recommended'
+    ? 'auto'
+    : data.selected_archetype_id;
+  selector.disabled = !options.length;
+  $('advisor-team-note').textContent = selected
+    ? `${selected.name} only · ${selected.project_count} available project${selected.project_count === 1 ? '' : 's'}`
+    : 'Every project stays focused on one team.';
+}
+
 function renderAdvisor(data) {
   const content = $('advisor-content');
+  renderAdvisorTeamSelector(data);
   const imported = data.source?.imported_at ? new Date(data.source.imported_at) : null;
   $('advisor-freshness').textContent = imported && !Number.isNaN(imported.valueOf())
     ? `Player dump from ${imported.toLocaleString()} · no officer access required`
@@ -1043,9 +1184,8 @@ function renderAdvisor(data) {
       </article>`;
     }).join('')}</div>`;
   }
-  const archetypeCount = data.archetypes?.length || 1;
   content.insertAdjacentHTML('beforeend',
-    `<div class="advisor-policy">${archetypeCount} validated Guild Raid archetype${archetypeCount === 1 ? '' : 's'} · reviewed ${escapeHtml(data.policy.last_reviewed)}</div>`
+    `<div class="advisor-policy">Primary team: ${escapeHtml(data.archetype.name)} · reviewed ${escapeHtml(data.policy.last_reviewed)}</div>`
   );
 }
 
@@ -1069,6 +1209,22 @@ async function refreshAdvisor() {
 
 $('btn-advisor-refresh').onclick = refreshAdvisor;
 $('advisor-dump').onchange = refreshAdvisor;
+$('advisor-team').onchange = async e => {
+  const selection = e.target.value;
+  e.target.disabled = true;
+  try {
+    await api('/api/settings', {
+      method:'POST',
+      body: JSON.stringify({advisor_archetype: selection})
+    });
+    toast(selection === 'auto' ? 'Using the recommended team.' : 'Primary team updated.');
+    await refreshAdvisor();
+    refreshHistory();
+  } catch(error) {
+    toast(error.message, 'err');
+    await refreshAdvisor();
+  }
+};
 
 // ── History ──
 const signedNumber = value => value > 0 ? `+${value}` : String(value);

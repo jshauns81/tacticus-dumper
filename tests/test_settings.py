@@ -74,6 +74,10 @@ def test_advisor_card_is_available_without_optional_guild_endpoints(client):
 
     assert 'id="advisor-card"' in html
     assert 'id="advisor-dump"' in html
+    assert 'id="advisor-team"' in html
+    assert "Primary team" in html
+    assert "Every project stays focused on one team." in html
+    assert "Recommended —" in html
     assert "no officer access required" in html
     assert "/api/advisor/recommendations" in html
     assert "encodeURIComponent(selectedDump)" in html
@@ -99,3 +103,29 @@ def test_settings_reject_non_boolean_values(client):
         "error": "show_guild must be a boolean.",
     }
     assert not config_path.exists()
+
+
+def test_primary_team_setting_is_validated_and_persisted(client):
+    test_client, config_path = client
+
+    response = test_client.post(
+        "/api/settings", json={"advisor_archetype": "mechanicalReactionCore"}
+    )
+
+    assert response.status_code == 200
+    assert json.loads(config_path.read_text(encoding="utf-8")) == {
+        "advisor_archetype": "mechanicalReactionCore"
+    }
+
+    invalid = test_client.post(
+        "/api/settings", json={"advisor_archetype": "unknownTeam"}
+    )
+
+    assert invalid.status_code == 400
+    assert invalid.get_json() == {
+        "ok": False,
+        "error": "Unknown Advisor primary team.",
+    }
+    assert json.loads(config_path.read_text(encoding="utf-8")) == {
+        "advisor_archetype": "mechanicalReactionCore"
+    }

@@ -56,8 +56,10 @@ Exit condition: the engine can describe what the account could do next without y
 Status: in progress. Validated scoring policies cover the Doom multi-hit core with
 Eldryon and Re'vas, sourced optional support from Aethana and Darkstrider, and the
 Actus/Exitor-Rho mechanical reaction core. The engine compares unique actions across
-all validated Guild Raid archetypes while returning at most one project per known
-character and three projects total. Scores are ordinal comparisons, not damage
+all validated Guild Raid archetypes to recommend a primary team, then returns only
+that team's projects. Users can persist a different primary team when they want to
+change focus. Each queue contains at most one project per known character and three
+projects total. Scores are ordinal comparisons, not damage
 predictions. Every project includes its archetype, visible score components, evidence,
 assumptions, a stopping point, and opportunity costs through
 `/api/advisor/recommendations`. Coverage expands only as sourced character and
@@ -78,7 +80,9 @@ shows data freshness, renders up to three projects, and provides a compact Why v
 with score components, assumptions, stopping points, and opportunity costs. The empty
 state explains when no supported project is ready and clarifies that Advisor uses the
 Player dump without officer-level Guild Raid API access. Users can select any retained
-Player dump from the Advisor card. Exact game-version display remains unavailable
+Player dump and choose a persisted primary Guild Raid team from the Advisor card.
+The recommended option uses the selected dump's available project scores and keeps
+the full queue focused on one archetype. Exact game-version display remains unavailable
 because the Player export does not include a game-version field; knowledge and review
 versions remain visible instead.
 
@@ -87,6 +91,7 @@ versions remain visible instead.
 - add a Why view
 - show data freshness and game version
 - support selecting an older player dump
+- support choosing one primary team plan
 
 ## Milestone 6: Account history
 

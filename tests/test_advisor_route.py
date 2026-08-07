@@ -41,11 +41,88 @@ def sample_payload():
     }
 
 
+def focused_team_payload():
+    def unit(character_id, name, alliance, abilities):
+        return {
+            "id": character_id,
+            "name": name,
+            "faction": "Test Faction",
+            "grandAlliance": alliance,
+            "progressionIndex": 7,
+            "xpLevel": 20,
+            "rank": 3,
+            "abilities": [
+                {"id": ability_id, "level": level}
+                for ability_id, level in abilities
+            ],
+            "items": [],
+            "shards": 0,
+            "mythicShards": 0,
+        }
+
+    return {
+        "player": {
+            "details": {"name": "Focused Team Tester", "powerLevel": 100},
+            "inventory": {
+                "abilityBadges": {
+                    "Xenos": [
+                        {
+                            "name": "Uncommon Badge",
+                            "rarity": "Uncommon",
+                            "amount": 99,
+                        }
+                    ],
+                    "Imperial": [
+                        {
+                            "name": "Uncommon Badge",
+                            "rarity": "Uncommon",
+                            "amount": 99,
+                        }
+                    ],
+                }
+            },
+            "units": [
+                unit(
+                    "eldarFarseer",
+                    "Eldryon",
+                    "Xenos",
+                    [("Doom", 60), ("Executioner", 60)],
+                ),
+                unit(
+                    "tauCrisis",
+                    "Re'vas",
+                    "Xenos",
+                    [("CyclicIonBlaster", 60), ("EarlyWarningOverride", 60)],
+                ),
+                unit(
+                    "eldarAutarch",
+                    "Aethana",
+                    "Xenos",
+                    [("Loki_SwoopingHawk", 60), ("PathOfCommand", 8)],
+                ),
+                unit(
+                    "admecRuststalker",
+                    "Exitor-Rho",
+                    "Imperial",
+                    [("CordClaw", 60), ("OptimizedGait", 60)],
+                ),
+                unit(
+                    "admecManipulus",
+                    "Actus",
+                    "Imperial",
+                    [("DefendTheDivineWork", 60), ("GalvanicField", 12)],
+                ),
+            ],
+        }
+    }
+
+
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     dumps_dir = tmp_path / "dumps"
     dumps_dir.mkdir()
     monkeypatch.setattr(app_module, "DUMPS_DIR", dumps_dir)
+    monkeypatch.setattr(app_module, "CONFIG_PATH", tmp_path / "config.json")
     app_module.app.config.update(TESTING=True)
     with app_module.app.test_client() as test_client:
         yield test_client, dumps_dir
@@ -269,6 +346,60 @@ def test_advisor_recommendations_returns_404_when_no_dump_exists(client):
 
     assert response.status_code == 404
     assert response.get_json()["error"] == "No player_*.json dumps were found."
+
+
+def test_advisor_recommends_one_primary_team_and_persists_manual_choice(client):
+    test_client, dumps_dir = client
+    (dumps_dir / "player_20260806_120000.json").write_text(
+        json.dumps(focused_team_payload()), encoding="utf-8"
+    )
+
+    automatic = test_client.get("/api/advisor/recommendations")
+
+    assert automatic.status_code == 200
+    result = automatic.get_json()
+    assert result["selection_mode"] == "recommended"
+    assert result["selected_archetype_id"] == "mechanicalReactionCore"
+    assert {project["archetype"]["id"] for project in result["projects"]} == {
+        "mechanicalReactionCore"
+    }
+    assert result["projects"][0]["title"] == "Raise Galvanic Field to level 13"
+    assert [option["id"] for option in result["archetype_options"]] == [
+        "doomMultiHitCore",
+        "mechanicalReactionCore",
+    ]
+
+    saved = test_client.post(
+        "/api/settings", json={"advisor_archetype": "doomMultiHitCore"}
+    )
+    manual = test_client.get("/api/advisor/recommendations")
+
+    assert saved.status_code == 200
+    assert manual.status_code == 200
+    result = manual.get_json()
+    assert result["selection_mode"] == "manual"
+    assert result["selected_archetype_id"] == "doomMultiHitCore"
+    assert {project["archetype"]["id"] for project in result["projects"]} == {
+        "doomMultiHitCore"
+    }
+    assert result["projects"][0]["title"] == "Raise Path of Command to level 9"
+
+
+def test_advisor_rejects_unknown_primary_team_query(client):
+    test_client, dumps_dir = client
+    (dumps_dir / "player_20260806_120000.json").write_text(
+        json.dumps(focused_team_payload()), encoding="utf-8"
+    )
+
+    response = test_client.get(
+        "/api/advisor/recommendations?archetype=notARealTeam"
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == (
+        "Primary team is unavailable: notARealTeam. "
+        "Choose a listed Guild Raid team."
+    )
 
 
 def test_advisor_history_compares_the_two_latest_player_dumps(client):
