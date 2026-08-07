@@ -26,7 +26,7 @@ from flask import (
 )
 
 from advisor.actions import ActionModelError, generate_candidate_actions
-from advisor.history import compare_player_snapshots
+from advisor.history import compare_player_snapshots, compare_recommendation_queues
 from advisor.knowledge import KnowledgeError, validate_knowledge_repository
 from advisor.parser import (
     PlayerDumpSelectionError,
@@ -436,7 +436,26 @@ def advisor_history():
         result = compare_player_snapshots(
             before, after, knowledge["progression_models"]
         )
-    except KnowledgeError as exc:
+        before_candidates = generate_candidate_actions(
+            before,
+            knowledge["progression_models"],
+            knowledge["characters"],
+        )
+        after_candidates = generate_candidate_actions(
+            after,
+            knowledge["progression_models"],
+            knowledge["characters"],
+        )
+        before_recommendations = score_guild_raid_actions(
+            before, before_candidates, knowledge
+        )
+        after_recommendations = score_guild_raid_actions(
+            after, after_candidates, knowledge
+        )
+        result["recommendation_changes"] = compare_recommendation_queues(
+            before_recommendations, after_recommendations
+        )
+    except (ActionModelError, ActionScoringError, KnowledgeError) as exc:
         app.logger.exception("Advisor history knowledge could not be loaded")
         return jsonify({"ok": False, "error": f"Advisor knowledge error: {exc}"}), 500
 
@@ -684,6 +703,11 @@ INDEX_HTML = r"""<!doctype html>
   .history-resource {
     display: flex; justify-content: space-between; gap: 8px;
     color: var(--muted); font-size: 11px;
+  }
+  .history-queue { margin-top: 10px; }
+  .history-queue-title {
+    color: var(--muted); font-size: 10px; font-weight: 600;
+    letter-spacing: .9px; text-transform: uppercase; margin-bottom: 6px;
   }
   @media (max-width: 520px) {
     .history-controls { grid-template-columns: 1fr 1fr; }
@@ -1074,6 +1098,23 @@ function resourceChangeLabel(change) {
   return parts.join(' · ');
 }
 
+function renderRecommendationChanges(change) {
+  if (!change) return '';
+  if (change.status === 'unchanged') {
+    return `<div class="history-queue"><div class="history-queue-title">Advisor queue</div><div class="history-event"><span class="event-icon">✓</span><span>${escapeHtml(change.message)}</span></div></div>`;
+  }
+  const added = (change.added || []).map(project =>
+    `<div class="history-event"><span class="event-icon">+</span><span>Added · ${escapeHtml(advisorActionLabel(project.action))}</span></div>`
+  ).join('');
+  const removed = (change.removed || []).map(project =>
+    `<div class="history-event"><span class="event-icon">−</span><span>Removed · ${escapeHtml(advisorActionLabel(project.action))}</span></div>`
+  ).join('');
+  const retained = (change.retained || []).filter(project => project.score_delta).map(project =>
+    `<div class="history-event"><span class="event-icon">↕</span><span>${escapeHtml(advisorActionLabel(project.action))} · score ${escapeHtml(signedNumber(project.score_delta))}</span></div>`
+  ).join('');
+  return `<div class="history-queue"><div class="history-queue-title">Advisor queue</div><div class="history-events">${added}${removed}${retained}</div><div class="advisor-notes">${escapeHtml(change.assumption)}</div></div>`;
+}
+
 function renderHistory(data) {
   const summary = data.summary;
   const metrics = [
@@ -1089,9 +1130,11 @@ function renderHistory(data) {
   const resources = (data.resource_changes || []).map(change =>
     `<div class="history-resource"><span>${escapeHtml(resourceChangeLabel(change))}</span><span>${escapeHtml(signedNumber(change.delta))}</span></div>`
   ).join('');
+  const recommendationChanges = renderRecommendationChanges(data.recommendation_changes);
 
   $('history-content').innerHTML = `<div class="history-metrics">${metrics}</div>
     ${events ? `<div class="history-events">${events}</div>` : `<div class="advisor-empty"><span class="state-icon">✓</span><div><h3>No changes between these snapshots</h3><p>Choose dates farther apart to review roster progress.</p></div></div>`}
+    ${recommendationChanges}
     ${resources ? `<details class="history-resources"><summary>Resource changes (${summary.resource_changes})</summary><div class="history-resource-list">${resources}</div></details>` : ''}`;
 }
 

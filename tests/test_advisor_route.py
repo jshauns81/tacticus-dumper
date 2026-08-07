@@ -291,6 +291,7 @@ def test_advisor_history_compares_the_two_latest_player_dumps(client):
     assert result["before"]["source"]["filename"] == before.name
     assert result["after"]["source"]["filename"] == after.name
     assert result["summary"]["power_delta"] == 15
+    assert result["recommendation_changes"]["status"] == "unchanged"
 
 
 def test_advisor_history_requires_two_dumps(client):

@@ -83,6 +83,7 @@ def test_advisor_card_is_available_without_optional_guild_endpoints(client):
     assert 'id="history-after"' in html
     assert "/api/advisor/history" in html
     assert "No changes between these snapshots" in html
+    assert "Advisor queue" in html
     assert 'id="show-guild"' in html
     assert 'id="show-guild-raid"' in html
 

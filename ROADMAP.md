@@ -87,12 +87,14 @@ versions remain visible instead.
 
 ## Milestone 6: Account history
 
-Status: in progress. `/api/advisor/history` compares the two newest Player dumps by
+Status: complete. `/api/advisor/history` compares the two newest Player dumps by
 default or an explicitly selected pair. It reports unlocks, missing records, rank and
 rarity progression, character and ability levels, account power, and net badge, orb,
 and shard changes without guessing why resources changed. The main page includes a
 Roster Changes card with readable Before/After selection, summary metrics, event rows,
-and collapsible resource changes. Recommendation-change explanations remain pending.
+and collapsible resource changes. It also compares scored Advisor queues and reports
+added, removed, retained, score-shifted, or unchanged projects without assuming that a
+missing project was completed.
 
 - compare snapshots
 - explain recommendation changes

@@ -1,4 +1,4 @@
-from advisor.history import compare_player_snapshots
+from advisor.history import compare_player_snapshots, compare_recommendation_queues
 
 
 def progression_models():
@@ -174,3 +174,69 @@ def test_reports_missing_character_without_inferring_a_cause():
             "character": {"id": "missing", "name": "Missing"},
         }
     ]
+
+
+def recommendation_project(action_id, character_id, score):
+    action = {
+        "id": action_id,
+        "type": "ability_level",
+        "character": {"id": character_id, "name": character_id.title()},
+        "ability": {"id": "Doom", "current_level": 19, "target_level": 20},
+    }
+    return {"action": action, "score": score}
+
+
+def test_compares_added_removed_and_retained_advisor_projects():
+    before = {
+        "status": "projects_ready",
+        "projects": [
+            recommendation_project("action:a", "alpha", 80),
+            recommendation_project("action:b", "beta", 70),
+        ],
+        "alternatives": [
+            {"action_id": "action:c", "reason": "lower_score"},
+        ],
+    }
+    after = {
+        "status": "projects_ready",
+        "projects": [
+            recommendation_project("action:c", "gamma", 90),
+            recommendation_project("action:a", "alpha", 85),
+        ],
+        "alternatives": [
+            {"action_id": "action:b", "reason": "character_project_limit"},
+        ],
+    }
+
+    result = compare_recommendation_queues(before, after)
+
+    assert result["status"] == "changed"
+    assert result["added"][0]["action_id"] == "action:c"
+    assert result["added"][0]["reason"] == "promoted_from_alternative"
+    assert result["removed"][0]["action_id"] == "action:b"
+    assert result["removed"][0]["reason"] == (
+        "reprioritized:character_project_limit"
+    )
+    assert result["retained"] == [
+        {
+            "action_id": "action:a",
+            "type": "ability_level",
+            "character": {"id": "alpha", "name": "Alpha"},
+            "before_score": 80,
+            "after_score": 85,
+            "score_delta": 5,
+            "action": before["projects"][0]["action"],
+        }
+    ]
+
+
+def test_reports_unchanged_empty_advisor_queue():
+    result = compare_recommendation_queues(
+        {"status": "no_supported_project_ready", "projects": [], "alternatives": []},
+        {"status": "no_supported_project_ready", "projects": [], "alternatives": []},
+    )
+
+    assert result["status"] == "unchanged"
+    assert result["added"] == []
+    assert result["removed"] == []
+    assert result["retained"] == []
