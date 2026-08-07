@@ -480,6 +480,77 @@ INDEX_HTML = r"""<!doctype html>
   .ep-card.loading { opacity: .6; pointer-events: none; }
   .ep-card.loading .arrow::after { content: '⏳'; }
 
+  /* ── advisor ── */
+  .advisor-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+  }
+  .advisor-head .card-title { margin-bottom: 3px; }
+  .advisor-sub { color: var(--muted); font-size: 12px; }
+  .advisor-refresh {
+    min-height: 38px; padding: 7px 12px; font-size: 12px; flex-shrink: 0;
+  }
+  .advisor-loading, .advisor-empty {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px;
+  }
+  .advisor-empty .state-icon {
+    display: grid; place-items: center; width: 32px; height: 32px;
+    border-radius: 50%; background: rgba(74,158,74,.15); color: var(--green);
+    font-weight: 700; flex-shrink: 0;
+  }
+  .advisor-empty.error .state-icon {
+    background: rgba(201,68,68,.15); color: var(--red);
+  }
+  .advisor-empty h3 { font-size: 15px; margin-bottom: 3px; }
+  .advisor-empty p { color: var(--muted); font-size: 13px; }
+  .advisor-known { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .advisor-chip {
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px;
+    color: var(--muted); font-size: 11px;
+  }
+  .advisor-projects { display: grid; gap: 10px; }
+  .advisor-project {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px;
+  }
+  .advisor-project-top {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; margin-bottom: 8px;
+  }
+  .advisor-rank {
+    color: var(--gold); font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .8px;
+  }
+  .advisor-score {
+    border: 1px solid var(--gold-d); color: var(--gold); border-radius: 999px;
+    padding: 3px 8px; font-family: var(--mono); font-size: 11px;
+  }
+  .advisor-project h3 { font-size: 17px; margin-bottom: 4px; }
+  .advisor-project .why { color: var(--muted); font-size: 13px; }
+  .advisor-stop {
+    margin-top: 10px; padding: 8px 10px; border-left: 2px solid var(--gold);
+    background: rgba(200,168,78,.07); color: var(--text); font-size: 12px;
+  }
+  .advisor-project details { margin-top: 10px; border-top: 1px solid var(--border); }
+  .advisor-project summary {
+    color: var(--gold); cursor: pointer; padding-top: 10px;
+    font-size: 12px; font-weight: 600;
+  }
+  .advisor-breakdown { display: grid; gap: 6px; margin-top: 9px; }
+  .advisor-component {
+    display: grid; grid-template-columns: 34px 1fr; gap: 8px;
+    color: var(--muted); font-size: 12px;
+  }
+  .advisor-component .points { color: var(--green); font-family: var(--mono); }
+  .advisor-notes { margin-top: 10px; color: var(--muted); font-size: 11px; }
+  .advisor-notes strong { color: var(--text); }
+  .advisor-policy {
+    color: var(--muted); font-family: var(--mono); font-size: 10px;
+    margin-top: 10px; text-align: right;
+  }
+
   /* ── key status ── */
   .key-badge {
     display: inline-flex; align-items: center; gap: 6px;
@@ -621,6 +692,22 @@ INDEX_HTML = r"""<!doctype html>
     </div>
   </div>
 
+  <!-- ADVISOR CARD -->
+  <div class="card" id="advisor-card">
+    <div class="advisor-head">
+      <div>
+        <div class="card-title">Guild Raid Advisor</div>
+        <div class="advisor-sub" id="advisor-freshness">
+          Uses saved Player data — no officer access required
+        </div>
+      </div>
+      <button class="btn-ghost advisor-refresh" id="btn-advisor-refresh">Refresh</button>
+    </div>
+    <div id="advisor-content" aria-live="polite">
+      <div class="advisor-loading"><span class="spinner"></span>Checking your latest roster…</div>
+    </div>
+  </div>
+
   <!-- OUTPUT CARD -->
   <div class="card" id="output-wrap">
     <div class="output-bar">
@@ -646,6 +733,10 @@ INDEX_HTML = r"""<!doctype html>
 <script>
 const $ = id => document.getElementById(id);
 let lastFetch = null;
+
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+  '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+})[char]);
 
 function toast(msg, kind='ok') {
   const t = $('toast');
@@ -709,6 +800,83 @@ async function updateEndpointVisibility(setting, checked) {
 
 $('show-guild').onchange = e => updateEndpointVisibility('show_guild', e.target.checked);
 $('show-guild-raid').onchange = e => updateEndpointVisibility('show_guild_raid', e.target.checked);
+
+// ── Advisor ──
+function advisorActionLabel(action) {
+  if (action.type === 'ability_level') {
+    return `Raise ${action.ability.id} to level ${action.ability.target_level}`;
+  }
+  if (action.type === 'rank') return `Rank up to ${action.rank.target_label}`;
+  if (action.type === 'unlock') return `Unlock ${action.character.name}`;
+  return `${action.type === 'ascension' ? 'Ascend' : 'Promote'} to ${action.progression.target_label}`;
+}
+
+function renderAdvisor(data) {
+  const content = $('advisor-content');
+  const imported = data.source?.imported_at ? new Date(data.source.imported_at) : null;
+  $('advisor-freshness').textContent = imported && !Number.isNaN(imported.valueOf())
+    ? `Player dump from ${imported.toLocaleString()} · no officer access required`
+    : 'Uses saved Player data — no officer access required';
+
+  if (!data.projects?.length) {
+    const known = (data.coverage?.known_owned_characters || []).map(character =>
+      `<span class="advisor-chip">${escapeHtml(character.name)} · no ready action</span>`
+    ).join('');
+    content.innerHTML = `<div class="advisor-empty">
+      <span class="state-icon">✓</span>
+      <div>
+        <h3>No ready project right now</h3>
+        <p>${escapeHtml(data.message)}</p>
+        ${known ? `<div class="advisor-known">${known}</div>` : ''}
+      </div>
+    </div>`;
+  } else {
+    content.innerHTML = `<div class="advisor-projects">${data.projects.map(project => {
+      const action = project.action;
+      const components = (project.components || []).map(component =>
+        `<div class="advisor-component"><span class="points">+${component.points}</span><span>${escapeHtml(component.reason)}</span></div>`
+      ).join('');
+      const assumptions = (project.assumptions || []).map(note => `<li>${escapeHtml(note)}</li>`).join('');
+      const costs = (project.opportunity_costs || []).map(note => `<li>${escapeHtml(note)}</li>`).join('');
+      return `<article class="advisor-project">
+        <div class="advisor-project-top">
+          <span class="advisor-rank">Project ${project.rank} · ${escapeHtml(action.character.name)}</span>
+          <span class="advisor-score">Score ${project.score}</span>
+        </div>
+        <h3>${escapeHtml(advisorActionLabel(action))}</h3>
+        <p class="why">${escapeHtml(project.why)}</p>
+        <div class="advisor-stop"><strong>Stop:</strong> ${escapeHtml(project.stopping_point)}</div>
+        <details>
+          <summary>Why this project</summary>
+          <div class="advisor-breakdown">${components}</div>
+          ${assumptions ? `<div class="advisor-notes"><strong>Assumptions</strong><ul>${assumptions}</ul></div>` : ''}
+          ${costs ? `<div class="advisor-notes"><strong>Opportunity costs</strong><ul>${costs}</ul></div>` : ''}
+        </details>
+      </article>`;
+    }).join('')}</div>`;
+  }
+  content.insertAdjacentHTML('beforeend',
+    `<div class="advisor-policy">${escapeHtml(data.policy.id)} · reviewed ${escapeHtml(data.policy.last_reviewed)}</div>`
+  );
+}
+
+async function refreshAdvisor() {
+  const button = $('btn-advisor-refresh');
+  button.disabled = true;
+  $('advisor-content').innerHTML = '<div class="advisor-loading"><span class="spinner"></span>Checking your latest roster…</div>';
+  try {
+    renderAdvisor(await api('/api/advisor/recommendations'));
+  } catch(e) {
+    $('advisor-content').innerHTML = `<div class="advisor-empty error">
+      <span class="state-icon">!</span>
+      <div><h3>Advisor needs a Player dump</h3><p>${escapeHtml(e.message)} Fetch Player data, then refresh the advisor.</p></div>
+    </div>`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$('btn-advisor-refresh').onclick = refreshAdvisor;
 
 // ── Endpoint cards ──
 document.querySelectorAll('.ep-card').forEach(card => {
@@ -774,6 +942,7 @@ async function refreshDumps() {
   }
 }
 refreshDumps();
+refreshAdvisor();
 </script>
 </body>
 </html>
